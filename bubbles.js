@@ -166,7 +166,7 @@ class Canon {
         this.context = context;
         this.angle = null;
         this.boule = null;
-        this.point_arret = null;
+        this.trajectoire = null;
         this.context.canvas.addEventListener('mousemove', this.diriger.bind(this));
         let callback_click = function() {
             this.feu(this.angle);
@@ -185,81 +185,153 @@ class Canon {
     
     
     diriger(evt) {
+        /*
+          calculer l'angle de tir en radian.
+          comme y est croissant vers le bas, un angle de cosinus positif va vers la gauche,
+          et un angle de cosinus négatif vers la droite.
+        */
         if (this.boule == null) {
             return;
         }
         let rect = this.context.canvas.getBoundingClientRect();
         let x_souris = evt.clientX - rect.left;
         let y_souris = evt.clientY - rect.top;
-        let cos_x = (x_souris - this.boule.x) / Math.sqrt(Math.pow(x_souris - this.boule.x, 2) + Math.pow(this.boule.y - y_souris, 2))
-        if (y_souris >= this.boule.y) {
+        let cos_x = (x_souris - this.boule.x) / Math.sqrt(Math.pow(x_souris - this.boule.x, 2) + Math.pow(this.boule.y - y_souris, 2));
+        if (y_souris > this.boule.y) {
             //si on essaie de tirer trop bas, la boule ne doit pas partir
             this.angle = null;
-        }
+        } 
         else {
-            this.angle = -Math.acos(cos_x);
+            this.angle = - Math.acos(cos_x);
+        }
+    }
+    
+    calculer_trajectoire() {
+        /*
+          calcul de la trajectoire de la boule.
+         La trajectoire est un un array dont le dernier élément est le point d'arrêt de la boule, 
+         et tous les éléments précédents les points de rebond. 
+         Attention : il faut recalculer l'angle à chaque rebond.
+        */
+        if (this.boule == null || this.angle == null) {
+            return;
         }
         
-    }
-    
-    
-    calculer_point_arret(angle) {
-        /* calcul de la prochaine boule touchée.
-           Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (environ 2*RAYON_BOULES) du centre d'un cercle de la grille.
-           Cela revient à calculer les intersections entre une droite et un cercle. 
-           Ensuite, l'intersection qui est au plus près de la position actuelle de la boule permet de connaître la position où la boule s'arrêtera.
-        */
-        let point_candidat = null;
-        let rayon_collision = RAYON_BOULES * 2;
+        this.trajectoire = [];
+        let trajectoire_terminee = false;      
+        let angle = this.angle;
+        let x_init = this.boule.x;
+        let y_init = this.boule.y;
+        
+        while (!trajectoire_terminee) {
+            /* Rechercher la prochaine boule en collision.
+               Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (2*RAYON_BOULES) du centre d'un cercle de la grille.
+               Ensuite, retenir la collision la plus proche.
+            */
+            let rayon_collision = RAYON_BOULES * 2;  
+            let point_candidat = null;
+            let point_collision = null;
+            
+            for (let li of grille.boules) {
+                for (let bo of li) {
+                    /* résolution du polynôme du 2nd degré résultant de l'équation  d'intersection de la trajectoire de la boule 
+                      (équation paramétrique de paramètre k) avec le cercle de rayon rayon_collision et de centre (bo.x, bo.y).*/
+                    let A = Math.pow(Math.cos(angle), 2) + Math.pow(Math.sin(angle), 2);
+                    let B = 2 * Math.cos(angle) * (x_init - bo.x) + 2 * Math.sin(angle) * (y_init - bo.y);
+                    let C = Math.pow(x_init - bo.x, 2) + Math.pow(y_init - bo.y, 2) - Math.pow(rayon_collision, 2);
+                    let delta = Math.pow(B, 2) - 4 * A * C;
 
-        for (let li of grille.boules) {
-            for (let bo of li) {
-                // résolution du polynôme du 2nd degré résultant de l'équation  d'intersection de la trajectoire de la boule (équation paramétrique de paramètre k) avec le cercle de rayon rayon_collision et de centre (bo.x, bo.y).
-                let A = Math.pow(Math.cos(angle), 2) + Math.pow(Math.sin(angle), 2);
-                let B = 2 * Math.cos(angle) * (this.boule.x - bo.x) + 2 * Math.sin(angle) * (this.boule.y - bo.y);
-                let C = Math.pow(this.boule.x - bo.x, 2) + Math.pow(this.boule.y - bo.y, 2) - Math.pow(rayon_collision, 2);
-                let delta = Math.pow(B, 2) - 4 * A * C;
-
-                if (delta > 0) {
-                    let k1 = (-B - Math.sqrt(delta)) / 2 * A;
-                    let k2 = (-B + Math.sqrt(delta)) / 2 * A;
-
-                    let distance1 = calcul_distance(this.boule.x, this.boule.y, this.boule.x + k1 * Math.cos(angle), this.boule.y + k1 * Math.sin(angle))
-
-                    let distance2 = calcul_distance(this.boule.x, this.boule.y, this.boule.x + k2 * Math.cos(angle), this.boule.y + k2 * Math.sin(angle))
-
-                    if (distance1 < distance2) {
+                    if (delta > 0) {
+                        let k1 = (-B - Math.sqrt(delta)) / 2 * A;
+                        let k2 = (-B + Math.sqrt(delta)) / 2 * A;
+                        let distance1 = calcul_distance(x_init, y_init, x_init + k1 * Math.cos(angle), y_init + k1 * Math.sin(angle))
+                        let distance2 = calcul_distance(x_init, y_init, x_init + k2 * Math.cos(angle), y_init + k2 * Math.sin(angle))
+                        
+                        if (distance1 < distance2) {
+                            point_candidat = {
+                                x : x_init + k1 * Math.cos(angle),
+                                y : y_init + k1 * Math.sin(angle)
+                            };
+                        }
+                        else {
+                            point_candidat = {
+                                x : x_init + k2 * Math.cos(angle),
+                                y : y_init + k2 * Math.sin(angle)
+                            };
+                        }
+                        
+                    }
+                    else if (delta == 0) {
+                        let k = - B / (2 * A);
                         point_candidat = {
-                            x : this.boule.x + k1 * Math.cos(angle),
-                            y : this.boule.y + k1 * Math.sin(angle)
+                            x : x_init + k * Math.cos(angle),
+                            y : y_init + k * Math.sin(angle)
                         };
                     }
-                    else {
-                        point_candidat = {
-                            x : this.boule.x + k2 * Math.cos(angle),
-                            y : this.boule.y + k2 * Math.sin(angle)
-                        };
-                    }
 
-                }
-                else if (delta == 0) {
-                    let k = - B / (2 * A);
-                    point_candidat = {
-                        x : this.boule.x + k * Math.cos(angle),
-                        y : this.boule.y + k * Math.sin(angle)
-                    };
-                }
-                
-                // le point candidat est retenu comme point d'arrêt si c'est le plus proche de la position actuelle de la boule.
-                if (!this.point_arret) {
-                    this.point_arret = point_candidat;
-                }
-                else if (calcul_distance(this.boule.x, this.boule.y, point_candidat.x, point_candidat.y) < calcul_distance(this.boule.x, this.boule.y, this.point_arret.x, this.point_arret.y)) {
-                    this.point_arret = point_candidat;
+                    // le point candidat est retenu comme point de prochaine collision si c'est le plus proche de la boule.
+                    if (!point_collision) {
+                        point_collision = point_candidat;
+                    }
+                    else if (calcul_distance(x_init, y_init, point_candidat.x, point_candidat.y) < 
+                             calcul_distance(x_init, y_init, point_collision.x, point_collision.y)) {
+                        point_collision = point_candidat;
+                    }
                 }
             }
+            
+            /*
+              Rechercher une intersection avec une paroi verticale. 
+            */
+            let point_rebond = null;
+            
+            if (Math.cos(angle) > 0) {
+                point_rebond = {
+                    x : this.context.canvas.width - RAYON_BOULES,
+                    y : y_init + Math.sin(angle) * (this.context.canvas.width - RAYON_BOULES - x_init) / Math.cos(angle)
+                };
+            }
+            else if (Math.cos(angle) < 0) {
+                point_rebond = {
+                    x : RAYON_BOULES,
+                    y : y_init + Math.sin(angle) * (RAYON_BOULES - x_init) / Math.cos(angle)
+                };
+            }
+
+            /*
+              Rechercher une intersection avec le plafond
+            */
+            let point_plafond = {
+                x : x_init + Math.cos(angle) * (RAYON_BOULES - y_init) / Math.sin(angle),
+                y : RAYON_BOULES
+            };
+            
+            /*
+              Choisir le plus proche des points entre point_collision, point_rebond et point_plafond,
+              et mettre à jour la trajectoire et l'angle selon ce qui a été choisi.
+            */
+            let prochain_point = point_plafond;
+            
+            if (point_collision && calcul_distance(x_init, y_init, point_collision.x, point_collision.y) < calcul_distance(x_init, y_init, prochain_point.x, prochain_point.y)) {
+                prochain_point = point_collision;
+            }
+            if (point_rebond && calcul_distance(x_init, y_init, point_rebond.x, point_rebond.y) < calcul_distance(x_init, y_init, prochain_point.x, prochain_point.y)) {
+                prochain_point = point_rebond;
+            }
+            
+            if (prochain_point == point_rebond) {
+                trajectoire_terminee = false;
+                x_init = prochain_point.x;
+                y_init = prochain_point.y;
+                angle = Math.PI - angle;
+            } else {
+                trajectoire_terminee = true;
+            }
+            
+            this.trajectoire.push(prochain_point);
         }
     }
+
     
     feu(angle) {
         /*
@@ -276,54 +348,38 @@ class Canon {
         }
         
         let step = RAYON_BOULES * 2 ;
-        let feu_termine = false;
-            
-        // calcul de la prochaine boule touchée.
-        if (this.point_arret == null) {
-            this.calculer_point_arret(angle);
+
+        // calcul de la trajectoire si pas déjà fait.
+        if (!this.trajectoire) {
+            this.calculer_trajectoire();
         }
         
-        /*
-           Si aucune boule n'est trouvée, on recherche la prochaine paroi verticale rencontrée.
-        */
-          
-        /*
-           Si aucune paroi verticale n'est trouvée, on recherche le point d'arrivée au plafond.
-        */
-        
-    
-        
-        
-        //DEBUT OLD
-        
-        // paroi verticale
-        if (this.boule.x + (step + RAYON_BOULES ) * Math.cos(angle) < 0 || this.boule.x + (step + RAYON_BOULES) * Math.cos(angle) > this.context.canvas.width) {
-            angle = Math.PI - angle;
-        }
+        let prochain_contact = this.trajectoire[0];
         
         this.boule.effacer();
-
         let next_x = this.boule.x + step * Math.cos(angle);
         let next_y = this.boule.y + step * Math.sin(angle);
         
-        if (calcul_distance(this.boule.x, this.boule.y, next_x, next_y) < calcul_distance(this.boule.x, this.boule.y, this.point_arret.x, this.point_arret.y)) {
+        
+        if (calcul_distance(this.boule.x, this.boule.y, next_x, next_y) < calcul_distance(this.boule.x, this.boule.y, prochain_contact.x, prochain_contact.y)) {
             this.boule.x = next_x;
             this.boule.y = next_y;
         }
         else {
-            this.boule.x = this.point_arret.x;
-            this.boule.y = this.point_arret.y;
-            feu_termine = true;
+            this.boule.x = prochain_contact.x;
+            this.boule.y = prochain_contact.y;
+            this.trajectoire.shift();
+            angle = Math.PI - angle;
         }
-        
-
+                
         this.boule.draw();
         
-        if (feu_termine) {
+                
+        if (this.trajectoire.length == 0) {
             grille.caler(this.boule);
-            //this.boule = null;
+            this.boule = null;
+            this.trajectoire = null;
             this.armer();
-            
         }
         else {
             let prochain_step = function() {
@@ -333,10 +389,6 @@ class Canon {
             let raf = window.requestAnimationFrame(prochain_step);
         }
         
-        // FIN OLD
-        
-        //on rencontre une autre boule ou la paroi du haut
-        //this.boule = null;   
     }
 }
 
