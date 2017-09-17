@@ -153,9 +153,34 @@ class Grille {
     }
     
     
-    caler(boule) {
-        // ajuster la position d'une boule par rapport à la grille, 
-        // et ajouter cette boule dans la grille.
+    ajuster_boule(boule) {
+        /* 
+          ajuster la position d'une boule par rapport à la grille, 
+          et ajouter cette boule dans la grille.
+        */
+        
+        
+        // trouver la boule la plus proche si boule à proximité OU plafond
+        let boule_proche = null;
+        
+        for (let li of grille.boules) {
+            for (let bo of li) {
+                if (calcul_distance(boule.x, boule.y, bo.x, bo.y) < 
+                   calcul_distance(boule.x, boule.y, boule_proche.x, boule_proche.y)) {
+                    boule_proche = bo;
+                    
+                    console.log(grille.boules.indexOf(li), li.indexOf(bo));
+                }
+            }
+        }
+        
+        
+        
+        
+        // trouver le sixième le plus proche
+        // ! si 2 sixièmes sont équidistants, il faut faire au pif ou en fonction 
+        // de la position de la paroi si on est sur une extrémité.
+        
         return;
     }
 }
@@ -369,7 +394,7 @@ class Canon {
         this.boule.draw();
         
         if (this.trajectoire.length == 0) {
-            grille.caler(this.boule);
+            grille.ajuster_boule(this.boule);
             this.boule = null;
             this.trajectoire = null;
             this.armer();
