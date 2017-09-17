@@ -10,12 +10,14 @@ const NB_BOULES_PAR_RANG = 12;
 var canvas = document.getElementById('game_canvas');
 const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
 var ctx = canvas.getContext('2d');
-var toto = document.getElementById('toto');
-var couleurs = ['rgb(255, 27, 27)', 'rgb(42, 173, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
+var couleurs = ['rgb(255, 27, 27)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
+
 
 function calcul_distance(x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 }
+
+
 
 class Boule {
     constructor(context) {
@@ -44,6 +46,7 @@ class Boule {
         this.context.fillStyle = grad;
         this.context.fill();
     }
+    
     
     effacer() {
         // redessiner la boule à sa position actuelle en mode gomme.
@@ -207,7 +210,7 @@ class Canon {
            Ensuite, l'intersection qui est au plus près de la position actuelle de la boule permet de connaître la position où la boule s'arrêtera.
         */
         let point_candidat = null;
-        let rayon_collision = RAYON_BOULES * 1.9;
+        let rayon_collision = RAYON_BOULES * 2;
 
         for (let li of grille.boules) {
             for (let bo of li) {
@@ -342,9 +345,6 @@ class Canon {
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
 grille.inserer_lignes(5);
-var fonction = (function() {
-    console.log(canon.nbfeux);
-})
-window.setTimeout(fonction, 5000);
+
 
 
