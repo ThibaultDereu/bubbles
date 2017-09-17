@@ -161,25 +161,24 @@ class Grille {
 }
 
 
+
 class Canon {
     constructor(context) {
         this.context = context;
         this.angle = null;
         this.boule = null;
+        this.canon_arme = false;
         this.trajectoire = null;
         this.context.canvas.addEventListener('mousemove', this.diriger.bind(this));
-        let callback_click = function() {
-            this.feu(this.angle);
-        }.bind(this);
-        this.context.canvas.addEventListener('click', callback_click);
+        this.context.canvas.addEventListener('click', this.feu.bind(this));
     }
     
     
     armer() {
         this.boule = new Boule(this.context);
         this.boule.x = this.context.canvas.width / 2;
-        this.boule.y = this.context.canvas.height - RAYON_BOULES*2;     
-        this.point_arret = null;
+        this.boule.y = this.context.canvas.height - RAYON_BOULES*2;
+        this.canon_arme = true;
         this.boule.draw(); 
     }
     
@@ -190,7 +189,7 @@ class Canon {
           comme y est croissant vers le bas, un angle de cosinus positif va vers la gauche,
           et un angle de cosinus négatif vers la droite.
         */
-        if (this.boule == null) {
+        if (!this.canon_arme) {
             return;
         }
         let rect = this.context.canvas.getBoundingClientRect();
@@ -206,12 +205,12 @@ class Canon {
         }
     }
     
+    
     calculer_trajectoire() {
         /*
           calcul de la trajectoire de la boule.
          La trajectoire est un un array dont le dernier élément est le point d'arrêt de la boule, 
          et tous les éléments précédents les points de rebond. 
-         Attention : il faut recalculer l'angle à chaque rebond.
         */
         if (this.boule == null || this.angle == null) {
             return;
@@ -333,35 +332,30 @@ class Canon {
     }
 
     
-    feu(angle) {
-        /*
-        TODO : à l'appel de feu (ou même à l'appel de diriger si on veut), on calcule la trajectoire entière de la boule :
-         un array dont le dernier élément est le point d'arrêt de la boule, 
-         et tous les éléments précédents les points de rebond. 
-         Attention : il faut recalculer l'angle à chaque rebond.
-         faut-il mémoriser l'angle dans cet array trajectoire ?
-         => tant qu'à faire.
-        */
+    feu() {
         
-        if (this.boule == null || angle == null) {
+        if (!this.canon_arme || this.angle == null) {
             return;
         }
+
+        this.canon_arme = false;
+        this.calculer_trajectoire();
+        this.animer_boule(this.angle);
+        
+    }
+    
+    
+    animer_boule(angle) {
         
         let step = RAYON_BOULES * 2 ;
-
-        // calcul de la trajectoire si pas déjà fait.
-        if (!this.trajectoire) {
-            this.calculer_trajectoire();
-        }
-        
         let prochain_contact = this.trajectoire[0];
         
         this.boule.effacer();
         let next_x = this.boule.x + step * Math.cos(angle);
         let next_y = this.boule.y + step * Math.sin(angle);
         
-        
-        if (calcul_distance(this.boule.x, this.boule.y, next_x, next_y) < calcul_distance(this.boule.x, this.boule.y, prochain_contact.x, prochain_contact.y)) {
+        if (calcul_distance(this.boule.x, this.boule.y, next_x, next_y) < 
+            calcul_distance(this.boule.x, this.boule.y, prochain_contact.x, prochain_contact.y)) {
             this.boule.x = next_x;
             this.boule.y = next_y;
         }
@@ -374,7 +368,6 @@ class Canon {
                 
         this.boule.draw();
         
-                
         if (this.trajectoire.length == 0) {
             grille.caler(this.boule);
             this.boule = null;
@@ -383,12 +376,11 @@ class Canon {
         }
         else {
             let prochain_step = function() {
-                this.feu(angle);
+                this.animer_boule(angle);
             }.bind(this);
 
             let raf = window.requestAnimationFrame(prochain_step);
         }
-        
     }
 }
 
