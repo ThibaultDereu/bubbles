@@ -1,17 +1,21 @@
 /*
 TODO : 
+ - important : créer un itérateur de boules. Sinon en itérant sur l'array grille.boules on tombera sur des éléments null.
  - ajouter un fichier de configuration. (nb boules par rang? couleurs).
  - ajouter des contrôles (nb boules par rang, niveau de difficulté)
  - game over si la dernière ligne insérée dépasse la limite.
  */
 
 
-const NB_BOULES_PAR_RANG = 12;
+const NB_BOULES_PAR_RANG = 16;
 var canvas = document.getElementById('game_canvas');
 const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
 var ctx = canvas.getContext('2d');
 var couleurs = ['rgb(255, 27, 27)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
-
+var canvas_buffer = document.createElement('canvas');
+canvas_buffer.width = canvas.width + RAYON_BOULES;
+canvas_buffer.height = canvas.height + RAYON_BOULES;
+var ctx_buffer = canvas_buffer.getContext('2d');
 
 function calcul_distance(x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
@@ -41,6 +45,7 @@ class Boule {
         this.context.strokeStyle = 'black';
         this.context.stroke();
         var grad = this.context.createRadialGradient(this.x - RAYON_BOULES * 0.3, this.y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, this.x, this.y, RAYON_BOULES)
+        
         grad.addColorStop(0, "white");
         grad.addColorStop(1, this.couleur);
         this.context.fillStyle = grad;
@@ -57,7 +62,6 @@ class Boule {
         return;
     }
 }
-
 
 
 class Grille {
@@ -82,26 +86,12 @@ class Grille {
     
     
     inserer_lignes(nb_lignes) {
-        /* inserer une ligne de nouvelles boules au dessus de la 1ere ligne
-           (hors du canvas), et appeler la méthode descendre_grille pour 
-           transférer toute la grille vers le bas. 
-           
-           La technique (brutale) consiste à effacer tout le canvas, 
-           à recalculer les coordonnées des boules une par une, et à toutes 
-           les re-dessiner une par une à chaque frame.
-           
-           Pour pouvoir insérer plusieurs lignes, on fait 1 insertion dans
-           l'array grille, 1 descendre_grille sur une hauteur de boule, en
-           passant à descendre_grille un callback à appeler dès que le 
-           transfert est terminé, qui est un nouvel appel à inserer_lignes 
-           avec la quantité de lignes restant à insérer.
-           
-           Résultat : correct, mais plus très fluide si nb de boules élevé.
-           Si performances insuffisantes, tester la solution suivante:
-           ctx.transfer pour bouger la grille, plutôt que redessiner toutes 
-           les boules 1 par 1. => pour éviter de bouger ce qui ne fait pas 
-           partie de la grille (le canon, la boule à jeter ou en 
-           cours de jet), une solution serait d'utiliser 2 canvas différents.
+        /* 
+           ancienne méthode : redessiner chaque boule une par une à chaque frame.
+           => pas fluide du tout si nombre de boules élevées.
+           nouvelle méthode : stocker l'ensemble du canvas dans canvas buffer,
+           et récupérer l'image à chaque frame.
+           https://stackoverflow.com/questions/3952856/why-is-putimagedata-so-slow
         */
         if (nb_lignes <= 0) {
             //on n'arme le canon que quand toutes les lignes sont à leur place.
@@ -111,78 +101,70 @@ class Grille {
         
         var ligne = [];
                 
-        //inserer une ligne de boules 
-        for (let i = 0; i < NB_BOULES_PAR_RANG; i++) {
-            let boule = new Boule(ctx);
-            let decalage_droite = RAYON_BOULES * (this.nb_lignes_generees % 2);
-            boule.x = RAYON_BOULES * 2 * i + RAYON_BOULES + decalage_droite;
-            boule.y = - RAYON_BOULES * (Math.sqrt(3) - 1);
-            boule.draw();
-            ligne.push(boule);
-        }
-        
-        this.boules.unshift(ligne);
-        this.nb_lignes_generees++;
-        
         var callback_descendre_grille = (function() {
+            //inserer une ligne de boules 
+            for (let i = 0; i < NB_BOULES_PAR_RANG; i++) {
+                let boule = new Boule(ctx);
+                let decalage_droite = RAYON_BOULES * (this.nb_lignes_generees % 2);
+                boule.x = RAYON_BOULES * 2 * i + RAYON_BOULES + decalage_droite;
+                boule.y = RAYON_BOULES;
+                boule.draw();
+                ligne.push(boule);
+            }
+            this.boules.unshift(ligne);
+            this.nb_lignes_generees++;
+            // inserer les lignes restantes
             this.inserer_lignes(nb_lignes - 1);
         }.bind(this));
         
-        window.requestAnimationFrame(this.descendre_grille(RAYON_BOULES * Math.sqrt(3), Math.ceil(RAYON_BOULES / 3), callback_descendre_grille));
-        
+        this.descendre_grille(RAYON_BOULES * Math.sqrt(3), Math.ceil(RAYON_BOULES / 10), callback_descendre_grille)
     }
   
         
     descendre_grille(restant, step, callback_fin) {
-            
-        return function() {
-            if (restant > 0) {
-                for (let li of this.boules) {
-                    for (let bo of li) {            
-                        step = Math.min(restant, step);
-                        bo.y += step;
-                    }
+        
+        if (restant > 0) {
+            for (let li of this.boules) {
+                for (let bo of li) {            
+                    step = Math.min(restant, step);
+                    bo.y += step;
                 }
-                this.draw();
-                let raf = window.requestAnimationFrame(this.descendre_grille(restant - step, step, callback_fin));
             }
-            else {
-                callback_fin();
-            }
-        }.bind(this);
+            
+            // sauvegarder image sur un canvas invisible
+            ctx_buffer.clearRect(0, 0, canvas_buffer.width, canvas_buffer.height);
+            ctx_buffer.drawImage(canvas, 0, 0);
+            
+            //coller sur le canvas visible
+            this.context.clearRect(0, 0, canvas.width, canvas.height);
+            this.context.drawImage(canvas_buffer, 0, step);
+            
+            let next_descendre_grille = function() {
+                this.descendre_grille(restant - step, step, callback_fin);
+            }.bind(this);
+                        
+            let raf = window.requestAnimationFrame(next_descendre_grille);
+        }
+        else {
+            callback_fin();
+        }
+
     }
     
     
-    ajuster_boule(boule) {
+    integrer_boule(boule) {
         /* 
           ajuster la position d'une boule par rapport à la grille, 
           et ajouter cette boule dans la grille.
         */
         
         
-        // trouver la boule la plus proche si boule à proximité OU plafond
-        let boule_proche = null;
-        
-        for (let li of grille.boules) {
-            for (let bo of li) {
-                if (calcul_distance(boule.x, boule.y, bo.x, bo.y) < 
-                   calcul_distance(boule.x, boule.y, boule_proche.x, boule_proche.y)) {
-                    boule_proche = bo;
-                    
-                    console.log(grille.boules.indexOf(li), li.indexOf(bo));
-                }
-            }
-        }
-        
-        
-        
-        
-        // trouver le sixième le plus proche
-        // ! si 2 sixièmes sont équidistants, il faut faire au pif ou en fonction 
-        // de la position de la paroi si on est sur une extrémité.
-        
+        // trouver les coordonnées de la grille qui se rapprochent 
+        // le plus de la position de la boule
+
         return;
     }
+    
 }
 
 
@@ -394,7 +376,7 @@ class Canon {
         this.boule.draw();
         
         if (this.trajectoire.length == 0) {
-            grille.ajuster_boule(this.boule);
+            grille.integrer_boule(this.boule);
             this.boule = null;
             this.trajectoire = null;
             this.armer();
@@ -413,7 +395,4 @@ class Canon {
 
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(5);
-
-
-
+grille.inserer_lignes(6);
