@@ -7,7 +7,7 @@ TODO :
  */
 
 
-const NB_BOULES_PAR_RANG = 16;
+const NB_BOULES_PAR_RANG = 12;
 var canvas = document.getElementById('game_canvas');
 const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
 var ctx = canvas.getContext('2d');
@@ -117,16 +117,25 @@ class Grille {
             this.inserer_lignes(nb_lignes - 1);
         }.bind(this));
         
-        this.descendre_grille(RAYON_BOULES * Math.sqrt(3), Math.ceil(RAYON_BOULES / 10), callback_descendre_grille)
+        this.descendre_grille(RAYON_BOULES * Math.sqrt(3), RAYON_BOULES / 3, callback_descendre_grille)
     }
   
         
     descendre_grille(restant, step, callback_fin) {
         
         if (restant > 0) {
+            /* NB: arrondissement du nombre de pixels à descendre : si celui-ci n'est pas entier, 
+               il y aura décalage entre la position réelle des boules et leur position visible
+               à l'écran. Vraisemblablement parce que le 3e argument de drawImage() est 
+               automatiquement arrondi au pixel le plus proche.
+               */
+            restant = Math.round(restant);
+            step = Math.round(step);
+            
+            step = Math.min(restant, step);
+            
             for (let li of this.boules) {
                 for (let bo of li) {            
-                    step = Math.min(restant, step);
                     bo.y += step;
                 }
             }
@@ -354,7 +363,7 @@ class Canon {
     
     animer_boule(angle) {
         
-        let step = RAYON_BOULES * 2 ;
+        let step = canvas.height / 30;
         let prochain_contact = this.trajectoire[0];
         
         this.boule.effacer();
@@ -395,4 +404,4 @@ class Canon {
 
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(6);
+grille.inserer_lignes(12);
