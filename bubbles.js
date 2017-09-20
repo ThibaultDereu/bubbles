@@ -1,9 +1,10 @@
 /*
 TODO : 
  - important : créer un itérateur de boules. Sinon en itérant sur l'array grille.boules on tombera sur des éléments null.
- - ajouter un fichier de configuration. (nb boules par rang? couleurs).
  - ajouter des contrôles (nb boules par rang, niveau de difficulté)
  - game over si la dernière ligne insérée dépasse la limite.
+ - une classe Partie qui est instanciée lorsque le joueur a saisi
+ ses paramètres (difficulté etc.) et lance une partie.
  */
 
 
@@ -117,21 +118,20 @@ class Grille {
             this.inserer_lignes(nb_lignes - 1);
         }.bind(this));
         
-        this.descendre_grille(RAYON_BOULES * Math.sqrt(3), RAYON_BOULES / 3, callback_descendre_grille)
+        /* NB: arrondissement du nombre de pixels à descendre : 
+        si celui-ci n'est pas entier, il y aura décalage entre la position 
+        réelle des boules et leur  position visible à l'écran. 
+        Vraisemblablement parce que le 3e argument de drawImage() est 
+        automatiquement arrondi au pixel le plus proche.
+        */
+        this.descendre_grille(Math.round(RAYON_BOULES * Math.sqrt(3)), Math.round(RAYON_BOULES / 3), callback_descendre_grille)
     }
   
         
     descendre_grille(restant, step, callback_fin) {
         
         if (restant > 0) {
-            /* NB: arrondissement du nombre de pixels à descendre : si celui-ci n'est pas entier, 
-               il y aura décalage entre la position réelle des boules et leur position visible
-               à l'écran. Vraisemblablement parce que le 3e argument de drawImage() est 
-               automatiquement arrondi au pixel le plus proche.
-               */
-            restant = Math.round(restant);
-            step = Math.round(step);
-            
+                      
             step = Math.min(restant, step);
             
             for (let li of this.boules) {
@@ -166,10 +166,28 @@ class Grille {
           ajuster la position d'une boule par rapport à la grille, 
           et ajouter cette boule dans la grille.
         */
+                
+        let hauteur_interligne = Math.round(RAYON_BOULES * Math.sqrt(3));
+        let ligne = Math.round((boule.y - RAYON_BOULES) / hauteur_interligne);
+        let decalage_droite = ligne % 2;
+        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * decalage_droite) / (2 * RAYON_BOULES));
         
+        // pas terrible, mais avec un array, pas le choix...
+        if (this.boules.length == ligne) {
+            this.boules.push([]) 
+            for (let i = 0; i < this.boules[ligne - 1].length; i++) {
+                this.boules[ligne].push([]);
+            }
+        }
         
-        // trouver les coordonnées de la grille qui se rapprochent 
-        // le plus de la position de la boule
+        boule.effacer();
+        
+        this.boules[ligne][rang] = boule;
+
+        boule.x = RAYON_BOULES * (1 + decalage_droite + 2 * rang);
+        boule.y = RAYON_BOULES + ligne * Math.round(RAYON_BOULES * Math.sqrt(3));
+
+        boule.draw();
 
         return;
     }
@@ -243,7 +261,7 @@ class Canon {
                Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (2*RAYON_BOULES) du centre d'un cercle de la grille.
                Ensuite, retenir la collision la plus proche.
             */
-            let rayon_collision = RAYON_BOULES * 2;  
+            let rayon_collision = RAYON_BOULES * 1.95;  
             let point_candidat = null;
             let point_collision = null;
             
@@ -363,7 +381,7 @@ class Canon {
     
     animer_boule(angle) {
         
-        let step = canvas.height / 30;
+        let step = canvas.height / 60;
         let prochain_contact = this.trajectoire[0];
         
         this.boule.effacer();
@@ -404,4 +422,5 @@ class Canon {
 
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(12);
+grille.inserer_lignes(11);
+
