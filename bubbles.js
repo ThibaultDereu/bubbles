@@ -1,4 +1,4 @@
-const NB_BOULES_PAR_RANG = 12;
+const NB_BOULES_PAR_RANG = 6;
 var canvas = document.getElementById('game_canvas');
 const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
 var ctx = canvas.getContext('2d');
@@ -52,6 +52,25 @@ class Boule {
         this.context.arc(this.x, this.y, RAYON_BOULES, 0, Math.PI*2, true);
         this.context.fill();
         return;
+    }
+    
+    
+    fade_away(rayon = RAYON_BOULES * 0.8) {
+        // faire disparaître la boule progressivement
+        this.effacer();
+        
+        if (rayon > RAYON_BOULES * 0.05) {
+            this.context.globalCompositeOperation = 'source-over';
+            this.context.beginPath();
+            this.context.arc(this.x, this.y, rayon, 0, Math.PI * 2, true);
+            this.context.fillStyle = this.couleur;
+            this.context.fill();
+            let next_frame = function() {
+                this.fade_away(rayon - RAYON_BOULES*0.1);
+            }.bind(this);
+            window.requestAnimationFrame(next_frame);
+        }
+        
     }
     
 }
@@ -170,7 +189,7 @@ class Grille {
         
         let position = this.calculer_pos(boule);
         let ligne = position.ligne;
-        let decalage_droite = ligne % 2;
+        let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2;
         let rang = position.rang;
         
         // pas terrible, mais avec un array, pas le choix...
@@ -196,7 +215,7 @@ class Grille {
     
     calculer_pos(boule) {
         let ligne = Math.round((boule.y - RAYON_BOULES) / HAUTEUR_INTERLIGNE);
-        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * (ligne % 2)) / (2 * RAYON_BOULES));
+        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * ((this.nb_lignes_generees + 1 + ligne) % 2)) / (2 * RAYON_BOULES));
         return {
             ligne : ligne,
             rang : rang
@@ -208,14 +227,15 @@ class Grille {
         let voisins = [];
         let ligne = this.calculer_pos(boule).ligne;
         let rang = this.calculer_pos(boule).rang;
+        let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2
         let coord_voisins = [
             {
                 li : ligne - 1,
-                ra : rang - 1 + (ligne % 2)
+                ra : rang - 1 + decalage_droite
             },
             {
                 li : ligne - 1,
-                ra : rang  + (ligne % 2)
+                ra : rang + decalage_droite
             },
             {
                 li : ligne,
@@ -227,11 +247,11 @@ class Grille {
             },
             {
                 li : ligne + 1,
-                ra : rang - 1 + (ligne % 2)
+                ra : rang - 1 + decalage_droite
             },
             {
                 li : ligne + 1,
-                ra : rang + (ligne % 2)
+                ra : rang + decalage_droite
             }
         ];
         
@@ -266,18 +286,23 @@ class Grille {
                     }
                 }
             }
-            else {
-                // 
-            }
         }
         
-        // on fait disparaître les boules après parce qu'il faut compter sa taille
-        // avant de les exploser.
-
+        // faire disparaître les boules si un groupe assez grand est trouvé
+        if (groupe_boules.length >= 3) {
+            for (let bo of groupe_boules) {
+                this.retirer_boule(bo);
+            }
+        }  
     }
     
+    
+    retirer_boule(boule) {
+        boule.fade_away();
+        let pos = this.calculer_pos(boule);
+        this.lignes[pos.ligne][pos.rang] = null;
+    }
 }
-
 
 
 class Canon {
@@ -504,5 +529,5 @@ class Canon {
 
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(11);
+grille.inserer_lignes(4);
 
