@@ -1,4 +1,4 @@
-const NB_BOULES_PAR_RANG = 6;
+const NB_BOULES_PAR_RANG = 12;
 var canvas = document.getElementById('game_canvas');
 const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
 var ctx = canvas.getContext('2d');
@@ -51,14 +51,13 @@ class Boule {
         this.context.beginPath();
         this.context.arc(this.x, this.y, RAYON_BOULES, 0, Math.PI*2, true);
         this.context.fill();
-        return;
     }
     
     
     fade_away(rayon = RAYON_BOULES * 0.8) {
         // faire disparaître la boule progressivement
         this.effacer();
-        
+
         if (rayon > RAYON_BOULES * 0.05) {
             this.context.globalCompositeOperation = 'source-over';
             this.context.beginPath();
@@ -69,10 +68,25 @@ class Boule {
                 this.fade_away(rayon - RAYON_BOULES*0.1);
             }.bind(this);
             window.requestAnimationFrame(next_frame);
-        }
-        
+        }   
     }
     
+    
+    tomber(chute = RAYON_BOULES * 10) {
+        this.effacer();
+
+        if (chute > 0) {
+            let step = RAYON_BOULES / 2;            
+            this.y += step;
+            this.draw();
+            
+            let next_frame = function() {
+                this.tomber(chute - step);
+            }.bind(this);
+            window.requestAnimationFrame(next_frame);
+        }
+
+    }
 }
 
 
@@ -95,18 +109,7 @@ class Grille {
         }
         return boules;
     }
-    
-    
-    draw() {
-        this.context.clearRect(0, 0, canvas.width, canvas.height);
-        this.context.globalCompositeOperation = 'source-over';
         
-        //dessiner toutes les boules une par une.
-        for (let bo of this.get_boules()) {
-            bo.draw();
-        }
-    }
-    
     
     inserer_lignes(nb_lignes) {
         /* 
@@ -151,7 +154,6 @@ class Grille {
   
         
     descendre_grille(restant, step, callback_fin) {
-        
         if (restant > 0) {
                       
             step = Math.min(restant, step);
@@ -165,6 +167,7 @@ class Grille {
             ctx_buffer.drawImage(canvas, 0, 0);
             
             //coller sur le canvas visible
+            ctx.globalCompositeOperation = 'source-over';
             this.context.clearRect(0, 0, canvas.width, canvas.height);
             this.context.drawImage(canvas_buffer, 0, step);
             
@@ -267,22 +270,21 @@ class Grille {
     }
     
     
-    regrouper_boule(boule) {
-        
+    regrouper_boule(boule) {  
         let couleur = boule.couleur;
         let groupe_boules = [];
-        let stack_boules = [boule];
+        let queue_boules = [boule];
         let boules_traitees = [];
                 
-        while (stack_boules.length > 0) {
-            boule = stack_boules.shift();
+        while (queue_boules.length > 0) {
+            boule = queue_boules.shift();
             boules_traitees.push(boule);
             
             if (boule.couleur == couleur) {
                 groupe_boules.push(boule);
                 for (let v of this.get_voisins(boule)) {
-                    if (!boules_traitees.includes(v) && !stack_boules.includes(v)) {
-                        stack_boules.push(v);
+                    if (!boules_traitees.includes(v) && !queue_boules.includes(v)) {
+                        queue_boules.push(v);
                     }
                 }
             }
@@ -291,16 +293,46 @@ class Grille {
         // faire disparaître les boules si un groupe assez grand est trouvé
         if (groupe_boules.length >= 3) {
             for (let bo of groupe_boules) {
-                this.retirer_boule(bo);
+                bo.fade_away();
+                let pos = this.calculer_pos(bo);
+                this.lignes[pos.ligne][pos.rang] = null;
             }
-        }  
+            this.detacher_boules_flottantes();
+        }
     }
     
     
-    retirer_boule(boule) {
-        boule.fade_away();
-        let pos = this.calculer_pos(boule);
-        this.lignes[pos.ligne][pos.rang] = null;
+    detacher_boules_flottantes() {
+        let boules_fixees = [];
+        let queue_boules = [];
+        
+        // initialiser les boules_fixees avec toutes les boules collées au plafond.
+        for (let bo of grille.lignes[0]) {
+            if (bo != null) {
+                queue_boules.push(bo);
+            }
+        }
+        
+        // rechercher tous les boules fixées
+        while (queue_boules.length > 0) {
+            let boule = queue_boules.shift();
+            boules_fixees.push(boule);
+            
+            for (let v of this.get_voisins(boule)) {
+                if (!boules_fixees.includes(v) && !queue_boules.includes(v)) {
+                    queue_boules.push(v);
+                }
+            }
+        }
+        
+        // toutes les boules de la grille non présentes dans boules_fixees doivent tomber.
+        for (let bo of this.get_boules()) {
+            if (!boules_fixees.includes(bo)) {
+                bo.tomber();
+                let pos = this.calculer_pos(bo);
+                this.lignes[pos.ligne][pos.rang] = null;
+            }
+        }
     }
 }
 
@@ -529,5 +561,5 @@ class Canon {
 
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(4);
+grille.inserer_lignes(6);
 
