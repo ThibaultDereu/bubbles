@@ -7,6 +7,7 @@ var canvas_buffer = document.createElement('canvas');
 canvas_buffer.width = canvas.width + RAYON_BOULES;
 canvas_buffer.height = canvas.height + RAYON_BOULES;
 var ctx_buffer = canvas_buffer.getContext('2d');
+const HAUTEUR_INTERLIGNE = Math.round(RAYON_BOULES * Math.sqrt(3));
 
 function calcul_distance(x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
@@ -52,14 +53,28 @@ class Boule {
         this.context.fill();
         return;
     }
+    
 }
 
 
 class Grille {
     constructor(context) {
         this.context = context;
-        this.boules = [];
+        this.lignes = [];
         this.nb_lignes_generees = 0;
+    }
+    
+    
+    get_boules() {
+        let boules = new Set();
+        for (let li of this.lignes) {
+            for(let bo of li) {
+                if (bo != null) {
+                    boules.add(bo);
+                }
+            }
+        }
+        return boules;
     }
     
     
@@ -68,10 +83,8 @@ class Grille {
         this.context.globalCompositeOperation = 'source-over';
         
         //dessiner toutes les boules une par une.
-        for (let li of this.boules) {
-            for (let bo of li) {
-                bo.draw();
-            }
+        for (let bo of this.get_boules()) {
+            bo.draw();
         }
     }
     
@@ -102,7 +115,7 @@ class Grille {
                 boule.draw();
                 ligne.push(boule);
             }
-            this.boules.unshift(ligne);
+            this.lignes.unshift(ligne);
             this.nb_lignes_generees++;
             // inserer les lignes restantes
             this.inserer_lignes(nb_lignes - 1);
@@ -114,7 +127,7 @@ class Grille {
         Vraisemblablement parce que le 3e argument de drawImage() est 
         automatiquement arrondi au pixel le plus proche.
         */
-        this.descendre_grille(Math.round(RAYON_BOULES * Math.sqrt(3)), Math.round(RAYON_BOULES / 3), callback_descendre_grille)
+        this.descendre_grille(HAUTEUR_INTERLIGNE, Math.round(RAYON_BOULES / 3), callback_descendre_grille)
     }
   
         
@@ -124,10 +137,8 @@ class Grille {
                       
             step = Math.min(restant, step);
             
-            for (let li of this.boules) {
-                for (let bo of li) {            
-                    bo.y += step;
-                }
+            for (let bo of this.get_boules()) {
+                bo.y += step;
             }
             
             // sauvegarder image sur un canvas invisible
@@ -150,36 +161,119 @@ class Grille {
 
     }
     
-    
+
     integrer_boule(boule) {
         /* 
           ajuster la position d'une boule par rapport à la grille, 
           et ajouter cette boule dans la grille.
         */
-                
-        let hauteur_interligne = Math.round(RAYON_BOULES * Math.sqrt(3));
-        let ligne = Math.round((boule.y - RAYON_BOULES) / hauteur_interligne);
+        
+        let position = this.calculer_pos(boule);
+        let ligne = position.ligne;
         let decalage_droite = ligne % 2;
-        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * decalage_droite) / (2 * RAYON_BOULES));
+        let rang = position.rang;
         
         // pas terrible, mais avec un array, pas le choix...
-        if (this.boules.length == ligne) {
-            this.boules.push([]) 
-            for (let i = 0; i < this.boules[ligne - 1].length; i++) {
-                this.boules[ligne].push([]);
+        if (this.lignes.length == ligne) {
+            this.lignes.push([]) 
+            for (let i = 0; i < NB_BOULES_PAR_RANG; i++) {
+                this.lignes[ligne].push(null);
             }
         }
         
         boule.effacer();
         
-        this.boules[ligne][rang] = boule;
+        this.lignes[ligne][rang] = boule;
 
         boule.x = RAYON_BOULES * (1 + decalage_droite + 2 * rang);
-        boule.y = RAYON_BOULES + ligne * Math.round(RAYON_BOULES * Math.sqrt(3));
+        boule.y = RAYON_BOULES + ligne * HAUTEUR_INTERLIGNE;
 
         boule.draw();
 
-        return;
+        this.regrouper_boule(boule);
+    }
+    
+    
+    calculer_pos(boule) {
+        let ligne = Math.round((boule.y - RAYON_BOULES) / HAUTEUR_INTERLIGNE);
+        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * (ligne % 2)) / (2 * RAYON_BOULES));
+        return {
+            ligne : ligne,
+            rang : rang
+        }
+    }
+    
+        
+    get_voisins(boule) {
+        let voisins = [];
+        let ligne = this.calculer_pos(boule).ligne;
+        let rang = this.calculer_pos(boule).rang;
+        let coord_voisins = [
+            {
+                li : ligne - 1,
+                ra : rang - 1 + (ligne % 2)
+            },
+            {
+                li : ligne - 1,
+                ra : rang  + (ligne % 2)
+            },
+            {
+                li : ligne,
+                ra : rang - 1
+            },
+            {
+                li : ligne,
+                ra : rang + 1
+            },
+            {
+                li : ligne + 1,
+                ra : rang - 1 + (ligne % 2)
+            },
+            {
+                li : ligne + 1,
+                ra : rang + (ligne % 2)
+            }
+        ];
+        
+        for (let cv of coord_voisins) {
+            if (this.lignes[cv.li] !== undefined && 
+                this.lignes[cv.li][cv.ra] !== undefined &&
+                this.lignes[cv.li][cv.ra] != null) {
+                voisins.push(this.lignes[cv.li][cv.ra])
+            }
+        }
+        
+        return voisins;
+    }
+    
+    
+    regrouper_boule(boule) {
+        
+        let couleur = boule.couleur;
+        let groupe_boules = [];
+        let stack_boules = [boule];
+        let boules_traitees = [];
+                
+        while (stack_boules.length > 0) {
+            boule = stack_boules.shift();
+            boules_traitees.push(boule);
+            
+            if (boule.couleur == couleur) {
+                groupe_boules.push(boule);
+                for (let v of this.get_voisins(boule)) {
+                    if (!boules_traitees.includes(v) && !stack_boules.includes(v)) {
+                        stack_boules.push(v);
+                    }
+                }
+            }
+            else {
+                // 
+            }
+        }
+        
+        // on fait disparaître les boules après parce qu'il faut compter sa taille
+        // avant de les exploser.
+
     }
     
 }
@@ -255,51 +349,49 @@ class Canon {
             let point_candidat = null;
             let point_collision = null;
             
-            for (let li of grille.boules) {
-                for (let bo of li) {
-                    /* résolution du polynôme du 2nd degré résultant de l'équation  d'intersection de la trajectoire de la boule 
-                      (équation paramétrique de paramètre k) avec le cercle de rayon rayon_collision et de centre (bo.x, bo.y).*/
-                    let A = Math.pow(Math.cos(angle), 2) + Math.pow(Math.sin(angle), 2);
-                    let B = 2 * Math.cos(angle) * (x_init - bo.x) + 2 * Math.sin(angle) * (y_init - bo.y);
-                    let C = Math.pow(x_init - bo.x, 2) + Math.pow(y_init - bo.y, 2) - Math.pow(rayon_collision, 2);
-                    let delta = Math.pow(B, 2) - 4 * A * C;
+            for (let bo of grille.get_boules()) {
+                /* résolution du polynôme du 2nd degré résultant de l'équation  d'intersection de la trajectoire de la boule 
+                  (équation paramétrique de paramètre k) avec le cercle de rayon rayon_collision et de centre (bo.x, bo.y).*/
+                let A = Math.pow(Math.cos(angle), 2) + Math.pow(Math.sin(angle), 2);
+                let B = 2 * Math.cos(angle) * (x_init - bo.x) + 2 * Math.sin(angle) * (y_init - bo.y);
+                let C = Math.pow(x_init - bo.x, 2) + Math.pow(y_init - bo.y, 2) - Math.pow(rayon_collision, 2);
+                let delta = Math.pow(B, 2) - 4 * A * C;
 
-                    if (delta > 0) {
-                        let k1 = (-B - Math.sqrt(delta)) / 2 * A;
-                        let k2 = (-B + Math.sqrt(delta)) / 2 * A;
-                        let distance1 = calcul_distance(x_init, y_init, x_init + k1 * Math.cos(angle), y_init + k1 * Math.sin(angle))
-                        let distance2 = calcul_distance(x_init, y_init, x_init + k2 * Math.cos(angle), y_init + k2 * Math.sin(angle))
-                        
-                        if (distance1 < distance2) {
-                            point_candidat = {
-                                x : x_init + k1 * Math.cos(angle),
-                                y : y_init + k1 * Math.sin(angle)
-                            };
-                        }
-                        else {
-                            point_candidat = {
-                                x : x_init + k2 * Math.cos(angle),
-                                y : y_init + k2 * Math.sin(angle)
-                            };
-                        }
-                        
-                    }
-                    else if (delta == 0) {
-                        let k = - B / (2 * A);
+                if (delta > 0) {
+                    let k1 = (-B - Math.sqrt(delta)) / 2 * A;
+                    let k2 = (-B + Math.sqrt(delta)) / 2 * A;
+                    let distance1 = calcul_distance(x_init, y_init, x_init + k1 * Math.cos(angle), y_init + k1 * Math.sin(angle))
+                    let distance2 = calcul_distance(x_init, y_init, x_init + k2 * Math.cos(angle), y_init + k2 * Math.sin(angle))
+
+                    if (distance1 < distance2) {
                         point_candidat = {
-                            x : x_init + k * Math.cos(angle),
-                            y : y_init + k * Math.sin(angle)
+                            x : x_init + k1 * Math.cos(angle),
+                            y : y_init + k1 * Math.sin(angle)
+                        };
+                    }
+                    else {
+                        point_candidat = {
+                            x : x_init + k2 * Math.cos(angle),
+                            y : y_init + k2 * Math.sin(angle)
                         };
                     }
 
-                    // le point candidat est retenu comme point de prochaine collision si c'est le plus proche de la boule.
-                    if (!point_collision) {
-                        point_collision = point_candidat;
-                    }
-                    else if (calcul_distance(x_init, y_init, point_candidat.x, point_candidat.y) < 
-                             calcul_distance(x_init, y_init, point_collision.x, point_collision.y)) {
-                        point_collision = point_candidat;
-                    }
+                }
+                else if (delta == 0) {
+                    let k = - B / (2 * A);
+                    point_candidat = {
+                        x : x_init + k * Math.cos(angle),
+                        y : y_init + k * Math.sin(angle)
+                    };
+                }
+
+                // le point candidat est retenu comme point de prochaine collision si c'est le plus proche de la boule.
+                if (!point_collision) {
+                    point_collision = point_candidat;
+                }
+                else if (calcul_distance(x_init, y_init, point_candidat.x, point_candidat.y) < 
+                         calcul_distance(x_init, y_init, point_collision.x, point_collision.y)) {
+                    point_collision = point_candidat;
                 }
             }
             
@@ -371,7 +463,7 @@ class Canon {
     
     animer_boule(angle) {
         
-        let step = canvas.height / 60;
+        let step = canvas.height / 30;
         let prochain_contact = this.trajectoire[0];
         
         this.boule.effacer();
