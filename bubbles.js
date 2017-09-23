@@ -1,13 +1,29 @@
-const NB_BOULES_PAR_RANG = 12;
+
+var nb_boules_par_rang = 16;
 var canvas = document.getElementById('game_canvas');
-const RAYON_BOULES = canvas.width / (NB_BOULES_PAR_RANG + 0.5) / 2;
+
+canvas.height = Math.round(window.innerHeight * 0.9);
+canvas.width = Math.round(canvas.height * 0.8);
+
+
+
+const RAYON_BOULES = canvas.width / (nb_boules_par_rang + 0.5) / 2;
 var ctx = canvas.getContext('2d');
-var couleurs = ['rgb(255, 27, 27)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
+//var couleurs = ['rgb(255, 27, 27)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
+var couleurs = [
+    {r: 255, g: 27, b: 27}, 
+    {r:86, g:190, b:255}, 
+    {r:76, g:255, b:23}, 
+    {r:255, g:237, b:16}, 
+    {r:255, g:86, b:210}
+    ];
 var canvas_buffer = document.createElement('canvas');
-canvas_buffer.width = canvas.width + RAYON_BOULES;
+canvas_buffer.width = canvas.width;
 canvas_buffer.height = canvas.height + RAYON_BOULES;
 var ctx_buffer = canvas_buffer.getContext('2d');
 const HAUTEUR_INTERLIGNE = Math.round(RAYON_BOULES * Math.sqrt(3));
+
+
 
 function calcul_distance(x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
@@ -33,15 +49,13 @@ class Boule {
         this.context.globalCompositeOperation = 'source-over';
         this.context.beginPath();
         this.context.arc(this.x, this.y, RAYON_BOULES * 0.9, 0, Math.PI * 2, true);
-        this.context.lineWidth = RAYON_BOULES * 0.1;
-        this.context.strokeStyle = 'black';
-        this.context.stroke();
-        var grad = this.context.createRadialGradient(this.x - RAYON_BOULES * 0.3, this.y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, this.x, this.y, RAYON_BOULES)
+        let grad = this.context.createRadialGradient(this.x - RAYON_BOULES * 0.3, this.y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, this.x, this.y, RAYON_BOULES);
+        grad.addColorStop(0, `rgb(${Math.round(this.couleur.r*2)}, ${Math.round(this.couleur.g*2)}, ${Math.round(this.couleur.b*2)}`);
+        grad.addColorStop(0.8, `rgb(${Math.round(this.couleur.r*0.8)}, ${Math.round(this.couleur.g*0.8)}, ${Math.round(this.couleur.b*0.8)}`);
+        grad.addColorStop(1, `rgb(${Math.round(this.couleur.r*0.7)}, ${Math.round(this.couleur.g*0.7)}, ${Math.round(this.couleur.b*0.7)}`);
         
-        grad.addColorStop(0, "white");
-        grad.addColorStop(1, this.couleur);
         this.context.fillStyle = grad;
-        this.context.fill();
+        this.context.fill();  
     }
     
     
@@ -54,7 +68,7 @@ class Boule {
     }
     
     
-    fade_away(rayon = RAYON_BOULES * 0.8) {
+    fade_away(rayon = RAYON_BOULES * 0.7) {
         // faire disparaître la boule progressivement
         this.effacer();
 
@@ -62,8 +76,9 @@ class Boule {
             this.context.globalCompositeOperation = 'source-over';
             this.context.beginPath();
             this.context.arc(this.x, this.y, rayon, 0, Math.PI * 2, true);
-            this.context.fillStyle = this.couleur;
+            this.context.fillStyle = `rgb(${this.couleur.r}, ${this.couleur.g}, ${this.couleur.b}`;
             this.context.fill();
+            this.context.closePath();
             let next_frame = function() {
                 this.fade_away(rayon - RAYON_BOULES*0.1);
             }.bind(this);
@@ -109,7 +124,15 @@ class Grille {
         }
         return boules;
     }
-        
+    
+    
+    draw() {
+        this.context.clearRect(0, 0, canvas.width, canvas.height);
+        for (let bo of this.get_boules()) {
+            bo.draw();
+        }
+    }
+    
     
     inserer_lignes(nb_lignes) {
         /* 
@@ -121,6 +144,7 @@ class Grille {
         */
         if (nb_lignes <= 0) {
             //on n'arme le canon que quand toutes les lignes sont à leur place.
+            this.draw();
             canon.armer();
             return;
         }
@@ -129,7 +153,7 @@ class Grille {
                 
         var callback_descendre_grille = (function() {
             //inserer une ligne de boules 
-            for (let i = 0; i < NB_BOULES_PAR_RANG; i++) {
+            for (let i = 0; i < nb_boules_par_rang; i++) {
                 let boule = new Boule(ctx);
                 let decalage_droite = RAYON_BOULES * (this.nb_lignes_generees % 2);
                 boule.x = RAYON_BOULES * 2 * i + RAYON_BOULES + decalage_droite;
@@ -198,7 +222,7 @@ class Grille {
         // pas terrible, mais avec un array, pas le choix...
         if (this.lignes.length == ligne) {
             this.lignes.push([]) 
-            for (let i = 0; i < NB_BOULES_PAR_RANG; i++) {
+            for (let i = 0; i < nb_boules_par_rang; i++) {
                 this.lignes[ligne].push(null);
             }
         }
@@ -402,7 +426,7 @@ class Canon {
                Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (2*RAYON_BOULES) du centre d'un cercle de la grille.
                Ensuite, retenir la collision la plus proche.
             */
-            let rayon_collision = RAYON_BOULES * 1.95;  
+            let rayon_collision = RAYON_BOULES * 2;  
             let point_candidat = null;
             let point_collision = null;
             
@@ -506,7 +530,6 @@ class Canon {
 
     
     feu() {
-        
         if (!this.canon_arme || this.angle == null) {
             return;
         }
@@ -514,7 +537,6 @@ class Canon {
         this.canon_arme = false;
         this.calculer_trajectoire();
         this.animer_boule(this.angle);
-        
     }
     
     
@@ -559,7 +581,7 @@ class Canon {
 
 
 
+
 var grille = new Grille(ctx);
 var canon = new Canon(ctx);
-grille.inserer_lignes(6);
-
+grille.inserer_lignes(nb_boules_par_rang/2);
