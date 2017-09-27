@@ -1,22 +1,23 @@
 
-var nb_boules_par_rang = 16;
-var canvas = document.getElementById('game_canvas');
+var nb_boules_par_rang = 8;
+var canvas = document.getElementById('canvas_game');
 
-canvas.height = Math.round(window.innerHeight * 0.9);
+canvas.height = Math.min(Math.round(window.innerHeight * 0.9), Math.round((window.innerWidth*0.9)/0.8));
 canvas.width = Math.round(canvas.height * 0.8);
-
-
 
 const RAYON_BOULES = canvas.width / (nb_boules_par_rang + 0.5) / 2;
 var ctx = canvas.getContext('2d');
-//var couleurs = ['rgb(255, 27, 27)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
+
+//var couleurs = ['rgb(255, 0, 0)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
 var couleurs = [
-    {r: 255, g: 27, b: 27}, 
-    {r:86, g:190, b:255}, 
+    {r: 255, g: 0, b: 0},
+    {r:86, g:190, b:255},
     {r:76, g:255, b:23}, 
     {r:255, g:237, b:16}, 
     {r:255, g:86, b:210}
-    ];
+];
+
+var map_couleurs_images = new Map();
 var canvas_buffer = document.createElement('canvas');
 canvas_buffer.width = canvas.width;
 canvas_buffer.height = canvas.height + RAYON_BOULES;
@@ -31,76 +32,144 @@ function calcul_distance(x1, y1, x2, y2) {
 
 
 
+function generer_dessins_boules() {
+    let canvas_boules = document.createElement('canvas');
+    canvas_boules.width = RAYON_BOULES * 2;
+    canvas_boules.height = RAYON_BOULES * 2;
+    let ctx_boules = canvas_boules.getContext('2d');
+    map_couleurs_images.clear();
+        
+    for (i = 0; i < couleurs.length ; i++) {
+        ctx_boules.clearRect(0, 0, canvas_boules.width, canvas_boules.height);
+        ctx_boules.globalCompositeOperation = 'source-over';
+        ctx_boules.beginPath();
+        x = RAYON_BOULES;
+        y = RAYON_BOULES;
+        ctx_boules.arc(x, y, RAYON_BOULES * 0.9, 0, Math.PI * 2, true);
+        let grad = ctx.createRadialGradient(x - RAYON_BOULES * 0.3, y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, x, y, RAYON_BOULES);
+        grad.addColorStop(0, `rgb(${couleurs[i].r}, ${couleurs[i].g}, ${couleurs[i].b}`);
+        grad.addColorStop(1, `rgb(${Math.round(couleurs[i].r*0.7)}, ${Math.round(couleurs[i].g*0.7)}, ${Math.round(couleurs[i].b*0.7)}`);
+        ctx_boules.fillStyle = grad;
+        ctx_boules.fill();  
+        
+        let img = new Image();
+        img.src = canvas_boules.toDataURL();
+        
+        map_couleurs_images.set(couleurs[i], img);
+    }
+}
+
+
+
+class Gestionnaire_frames {
+    constructor() {
+        this.fonctions_avant = [];
+        this.fonctions_apres = [];
+        this.triggered = false;
+        this.actif = false;
+    }
+    //autre idée : avoir des fonctions d'update et des fonctions de dessin.
+    
+    trigger() {
+        // On ne fait qu'une frame à la fois.
+        // Si une demande est faite pendant que le gestionnaire est déjà actif, on retrigger à la fin de l'activité.
+        if (!this.actif) {
+            let next_frame = function() {
+                this.actif = true;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                let fonctions = this.fonctions_avant.slice();
+                this.fonctions_avant = [];
+
+                while (fonctions.length > 0) {
+                    let f = fonctions.shift();
+                    f();
+                }
+                
+                fonctions = this.fonctions_apres.slice();
+                this.fonctions_apres = [];
+                
+                while (fonctions.length > 0) {
+                    let f = fonctions.shift();
+                    f();
+                }
+                
+                this.actif = false;
+                
+                if (this.triggered) {
+                    this.triggered = false;
+                    this.trigger();
+                }
+            }.bind(this);
+            window.requestAnimationFrame(next_frame);
+        }
+        else {
+            this.triggered = true;
+        }
+    }
+}
+
+
 class Boule {
-    constructor(context) {
-        this.context = context;
+    constructor() {
         this.couleur = couleurs[Math.floor(Math.random() * couleurs.length)];
         this.x = 0;
         this.y = 0;
+        this.visible = true;
+        gestionnaire_frames.fonctions_apres.push(this.draw.bind(this));
     }
 
     
     toString() {
         return `boule (${this.couleur}, ${this.x}, ${this.y})`
     }
-
+    
     
     draw() {
-        this.context.globalCompositeOperation = 'source-over';
-        this.context.beginPath();
-        this.context.arc(this.x, this.y, RAYON_BOULES * 0.9, 0, Math.PI * 2, true);
-        let grad = this.context.createRadialGradient(this.x - RAYON_BOULES * 0.3, this.y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, this.x, this.y, RAYON_BOULES);
-        grad.addColorStop(0, `rgb(${Math.round(this.couleur.r*2)}, ${Math.round(this.couleur.g*2)}, ${Math.round(this.couleur.b*2)}`);
-        grad.addColorStop(0.8, `rgb(${Math.round(this.couleur.r*0.8)}, ${Math.round(this.couleur.g*0.8)}, ${Math.round(this.couleur.b*0.8)}`);
-        grad.addColorStop(1, `rgb(${Math.round(this.couleur.r*0.7)}, ${Math.round(this.couleur.g*0.7)}, ${Math.round(this.couleur.b*0.7)}`);
-        
-        this.context.fillStyle = grad;
-        this.context.fill();  
-    }
-    
-    
-    effacer() {
-        // redessiner la boule à sa position actuelle en mode gomme.
-        this.context.globalCompositeOperation = 'destination-out';
-        this.context.beginPath();
-        this.context.arc(this.x, this.y, RAYON_BOULES, 0, Math.PI*2, true);
-        this.context.fill();
+        if (this.visible) {
+            ctx.drawImage(map_couleurs_images.get(this.couleur), this.x - RAYON_BOULES, this.y - RAYON_BOULES);
+            gestionnaire_frames.fonctions_apres.push(this.draw.bind(this));
+        }
     }
     
     
     fade_away(rayon = RAYON_BOULES * 0.7) {
-        // faire disparaître la boule progressivement
-        this.effacer();
-
+        this.visible = false;
+        
         if (rayon > RAYON_BOULES * 0.05) {
-            this.context.globalCompositeOperation = 'source-over';
-            this.context.beginPath();
-            this.context.arc(this.x, this.y, rayon, 0, Math.PI * 2, true);
-            this.context.fillStyle = `rgb(${this.couleur.r}, ${this.couleur.g}, ${this.couleur.b}`;
-            this.context.fill();
-            this.context.closePath();
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, rayon, 0, Math.PI * 2, true);
+            ctx.fillStyle = `rgb(${this.couleur.r}, ${this.couleur.g}, ${this.couleur.b}`;
+            ctx.fill();
+            ctx.closePath();
+            
             let next_frame = function() {
-                this.fade_away(rayon - RAYON_BOULES*0.1);
+                this.fade_away(rayon - RAYON_BOULES*0.15);
             }.bind(this);
-            window.requestAnimationFrame(next_frame);
-        }   
+            
+            gestionnaire_frames.fonctions_apres.push(next_frame);
+        }  
+        
+        gestionnaire_frames.trigger();
     }
     
     
     tomber(chute = RAYON_BOULES * 10) {
-        this.effacer();
-
         if (chute > 0) {
             let step = RAYON_BOULES / 2;            
             this.y += step;
-            this.draw();
             
             let next_frame = function() {
                 this.tomber(chute - step);
             }.bind(this);
-            window.requestAnimationFrame(next_frame);
+            gestionnaire_frames.fonctions_avant.push(next_frame);
         }
-
+        else {
+            this.visible = false;
+        }
+        
+        gestionnaire_frames.trigger();
     }
 }
 
@@ -111,7 +180,6 @@ class Grille {
         this.lignes = [];
         this.nb_lignes_generees = 0;
     }
-    
     
     get_boules() {
         let boules = new Set();
@@ -126,87 +194,53 @@ class Grille {
     }
     
     
-    draw() {
-        this.context.clearRect(0, 0, canvas.width, canvas.height);
-        for (let bo of this.get_boules()) {
-            bo.draw();
-        }
-    }
-    
-    
     inserer_lignes(nb_lignes) {
-        /* 
-           ancienne méthode : redessiner chaque boule une par une à chaque frame.
-           => pas fluide du tout si nombre de boules élevées.
-           nouvelle méthode : stocker l'ensemble du canvas dans canvas buffer,
-           et récupérer l'image à chaque frame.
-           https://stackoverflow.com/questions/3952856/why-is-putimagedata-so-slow
-        */
         if (nb_lignes <= 0) {
             //on n'arme le canon que quand toutes les lignes sont à leur place.
-            this.draw();
             canon.armer();
             return;
         }
         
-        var ligne = [];
-                
-        var callback_descendre_grille = (function() {
-            //inserer une ligne de boules 
-            for (let i = 0; i < nb_boules_par_rang; i++) {
+        for (let i = 1; i <= nb_lignes; i++) {
+            let ligne = [];
+            for (let j = 0; j < nb_boules_par_rang; j++) {
                 let boule = new Boule(ctx);
                 let decalage_droite = RAYON_BOULES * (this.nb_lignes_generees % 2);
-                boule.x = RAYON_BOULES * 2 * i + RAYON_BOULES + decalage_droite;
-                boule.y = RAYON_BOULES;
-                boule.draw();
+                boule.x = RAYON_BOULES + RAYON_BOULES * 2 * j + decalage_droite;
+                boule.y = RAYON_BOULES - HAUTEUR_INTERLIGNE * i;
                 ligne.push(boule);
             }
             this.lignes.unshift(ligne);
             this.nb_lignes_generees++;
-            // inserer les lignes restantes
-            this.inserer_lignes(nb_lignes - 1);
+        }
+        
+        
+        gestionnaire_frames.fonctions_avant.push(function() {
+            this.descendre_grille(nb_lignes * HAUTEUR_INTERLIGNE, RAYON_BOULES / 4);
         }.bind(this));
         
-        /* NB: arrondissement du nombre de pixels à descendre : 
-        si celui-ci n'est pas entier, il y aura décalage entre la position 
-        réelle des boules et leur  position visible à l'écran. 
-        Vraisemblablement parce que le 3e argument de drawImage() est 
-        automatiquement arrondi au pixel le plus proche.
-        */
-        this.descendre_grille(HAUTEUR_INTERLIGNE, Math.round(RAYON_BOULES / 3), callback_descendre_grille)
+        gestionnaire_frames.trigger();
     }
-  
-        
-    descendre_grille(restant, step, callback_fin) {
+    
+    
+    descendre_grille (restant, step) {
         if (restant > 0) {
-                      
             step = Math.min(restant, step);
-            
             for (let bo of this.get_boules()) {
                 bo.y += step;
             }
             
-            // sauvegarder image sur un canvas invisible
-            ctx_buffer.clearRect(0, 0, canvas_buffer.width, canvas_buffer.height);
-            ctx_buffer.drawImage(canvas, 0, 0);
+            gestionnaire_frames.fonctions_avant.push(function() {
+                this.descendre_grille(restant - step, step);
+            }.bind(this));
             
-            //coller sur le canvas visible
-            ctx.globalCompositeOperation = 'source-over';
-            this.context.clearRect(0, 0, canvas.width, canvas.height);
-            this.context.drawImage(canvas_buffer, 0, step);
-            
-            let next_descendre_grille = function() {
-                this.descendre_grille(restant - step, step, callback_fin);
-            }.bind(this);
-                        
-            let raf = window.requestAnimationFrame(next_descendre_grille);
         }
         else {
-            callback_fin();
+            canon.armer();
         }
-
+        gestionnaire_frames.trigger();
     }
-    
+          
 
     integrer_boule(boule) {
         /* 
@@ -219,7 +253,7 @@ class Grille {
         let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2;
         let rang = position.rang;
         
-        // pas terrible, mais avec un array, pas le choix...
+        // se besoin, création d'une ligne vide dans la grille pour accueillir la boule
         if (this.lignes.length == ligne) {
             this.lignes.push([]) 
             for (let i = 0; i < nb_boules_par_rang; i++) {
@@ -227,14 +261,12 @@ class Grille {
             }
         }
         
-        boule.effacer();
-        
         this.lignes[ligne][rang] = boule;
 
         boule.x = RAYON_BOULES * (1 + decalage_droite + 2 * rang);
         boule.y = RAYON_BOULES + ligne * HAUTEUR_INTERLIGNE;
-
-        boule.draw();
+        
+        gestionnaire_frames.trigger();
 
         this.regrouper_boule(boule);
     }
@@ -287,6 +319,7 @@ class Grille {
                 this.lignes[cv.li][cv.ra] !== undefined &&
                 this.lignes[cv.li][cv.ra] != null) {
                 voisins.push(this.lignes[cv.li][cv.ra])
+                //console.log("voisin de ",ligne, rang, cv.li, cv.ra);
             }
         }
         
@@ -317,7 +350,7 @@ class Grille {
         // faire disparaître les boules si un groupe assez grand est trouvé
         if (groupe_boules.length >= 3) {
             for (let bo of groupe_boules) {
-                bo.fade_away();
+                gestionnaire_frames.fonctions_avant.push(bo.fade_away.bind(bo));
                 let pos = this.calculer_pos(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
             }
@@ -362,23 +395,49 @@ class Grille {
 
 
 class Canon {
-    constructor(context) {
-        this.context = context;
+    constructor() {
         this.angle = null;
         this.boule = null;
         this.canon_arme = false;
         this.trajectoire = null;
-        this.context.canvas.addEventListener('mousemove', this.diriger.bind(this));
-        this.context.canvas.addEventListener('click', this.feu.bind(this));
+        this.mouse_down = false;
+        
+        // actions souris
+        canvas.addEventListener('mousemove', this.diriger.bind(this));
+        canvas.addEventListener('mouseup', this.feu.bind(this));
+        canvas.addEventListener('mousedown', function(evt) {
+            this.mouse_down = true;
+            this.diriger(evt);
+        }.bind(this));
+        canvas.addEventListener('mouseout', function(evt) {
+            this.mouse_down = false;
+            gestionnaire_frames.trigger();
+        }.bind(this));
+        
+        
+        // actions tactiles
+        canvas.addEventListener('touchstart', function(touch_event) {
+            touch_event.preventDefault();
+            this.mouse_down = true;
+            this.diriger(touch_event.touches[0]);
+        }.bind(this));
+        canvas.addEventListener('touchmove', function(evt) {
+            evt.preventDefault();
+            this.diriger(evt.touches[0]);
+        }.bind(this));
+        canvas.addEventListener('touchend', function(evt) {
+            evt.preventDefault();
+            this.feu();
+        }.bind(this));
     }
     
     
     armer() {
-        this.boule = new Boule(this.context);
-        this.boule.x = this.context.canvas.width / 2;
-        this.boule.y = this.context.canvas.height - RAYON_BOULES*2;
+        this.boule = new Boule();
+        this.boule.x = canvas.width / 2;
+        this.boule.y = canvas.height - RAYON_BOULES*2;
         this.canon_arme = true;
-        this.boule.draw(); 
+        gestionnaire_frames.trigger();
     }
     
     
@@ -391,7 +450,7 @@ class Canon {
         if (!this.canon_arme) {
             return;
         }
-        let rect = this.context.canvas.getBoundingClientRect();
+        let rect = canvas.getBoundingClientRect();
         let x_souris = evt.clientX - rect.left;
         let y_souris = evt.clientY - rect.top;
         let cos_x = (x_souris - this.boule.x) / Math.sqrt(Math.pow(x_souris - this.boule.x, 2) + Math.pow(this.boule.y - y_souris, 2));
@@ -402,6 +461,12 @@ class Canon {
         else {
             this.angle = - Math.acos(cos_x);
         }
+
+        if (this.mouse_down) {
+            gestionnaire_frames.fonctions_apres.push(this.draw_trajectoire.bind(this));
+            gestionnaire_frames.trigger();
+        }
+        
     }
     
     
@@ -426,7 +491,7 @@ class Canon {
                Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (2*RAYON_BOULES) du centre d'un cercle de la grille.
                Ensuite, retenir la collision la plus proche.
             */
-            let rayon_collision = RAYON_BOULES * 2;  
+            let rayon_collision = RAYON_BOULES * 1.5;  
             let point_candidat = null;
             let point_collision = null;
             
@@ -483,8 +548,8 @@ class Canon {
             
             if (Math.cos(angle) > 0) {
                 point_rebond = {
-                    x : this.context.canvas.width - RAYON_BOULES,
-                    y : y_init + Math.sin(angle) * (this.context.canvas.width - RAYON_BOULES - x_init) / Math.cos(angle)
+                    x : canvas.width - RAYON_BOULES,
+                    y : y_init + Math.sin(angle) * (canvas.width - RAYON_BOULES - x_init) / Math.cos(angle)
                 };
             }
             else if (Math.cos(angle) < 0) {
@@ -527,16 +592,46 @@ class Canon {
             this.trajectoire.push(prochain_point);
         }
     }
+    
+    
+    draw_trajectoire() {
+        
+        if (this.angle == null || !this.mouse_down) {
+            return;
+        }
+        
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = `rgb(${this.boule.couleur.r}, ${this.boule.couleur.g}, ${this.boule.couleur.b})`;
+        ctx.beginPath();
+        ctx.moveTo(this.boule.x, this.boule.y);
+        
+        this.calculer_trajectoire();
+    
+        for (let point of this.trajectoire) {
+            ctx.lineTo(point.x, point.y);
+        }
+        ctx.globalCompositeOperation = 'source-over';        
+        
+        ctx.stroke();
+        
+        gestionnaire_frames.fonctions_apres.push(this.draw_trajectoire.bind(this));
+    }
 
     
     feu() {
+        this.mouse_down = false;
         if (!this.canon_arme || this.angle == null) {
             return;
         }
 
         this.canon_arme = false;
         this.calculer_trajectoire();
-        this.animer_boule(this.angle);
+        gestionnaire_frames.fonctions_avant.push(function() {
+            this.animer_boule(this.angle);
+        }.bind(this));
+        gestionnaire_frames.trigger();
     }
     
     
@@ -545,7 +640,7 @@ class Canon {
         let step = canvas.height / 30;
         let prochain_contact = this.trajectoire[0];
         
-        this.boule.effacer();
+        //this.boule.effacer();
         let next_x = this.boule.x + step * Math.cos(angle);
         let next_y = this.boule.y + step * Math.sin(angle);
         
@@ -560,28 +655,43 @@ class Canon {
             this.trajectoire.shift();
             angle = Math.PI - angle;
         }
-                
-        this.boule.draw();
+        
         
         if (this.trajectoire.length == 0) {
             grille.integrer_boule(this.boule);
             this.boule = null;
             this.trajectoire = null;
             this.armer();
+            gestionnaire_frames.trigger();
         }
         else {
             let prochain_step = function() {
                 this.animer_boule(angle);
             }.bind(this);
-
-            let raf = window.requestAnimationFrame(prochain_step);
+            
+            gestionnaire_frames.fonctions_avant.push(prochain_step);
+            gestionnaire_frames.trigger();
         }
     }
 }
 
 
+// initialisation du jeu
+var gestionnaire_frames = new Gestionnaire_frames();
 
+// initialisation de la partie
+generer_dessins_boules();
+var grille = new Grille();
+var canon = new Canon();
+grille.inserer_lignes(nb_boules_par_rang / 2);
 
-var grille = new Grille(ctx);
-var canon = new Canon(ctx);
-grille.inserer_lignes(nb_boules_par_rang/2);
+/*
+window.setTimeout(function() {
+    for (i=0; i<grille.lignes.length; i++) {
+        for (j=0; j<grille.lignes[i].length; j++) {
+            console.log(i, j, grille.calculer_pos(grille.lignes[i][j]));
+        }
+    }
+    console.log(grille.lignes);
+}, 2000);
+*/
