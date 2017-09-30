@@ -1,14 +1,11 @@
 
-var nb_boules_par_rang = 8;
 var canvas = document.getElementById('canvas_game');
-
+var ctx = canvas.getContext('2d');
 canvas.height = Math.min(Math.round(window.innerHeight * 0.9), Math.round((window.innerWidth*0.9)/0.8));
 canvas.width = Math.round(canvas.height * 0.8);
 
-const RAYON_BOULES = canvas.width / (nb_boules_par_rang + 0.5) / 2;
-var ctx = canvas.getContext('2d');
+var gestionnaire_frames; 
 
-//var couleurs = ['rgb(255, 0, 0)', 'rgb(86, 190, 255)', 'rgb(76, 255, 23)', 'rgb(255, 237, 16)', 'rgb(255, 86, 210)'];
 var couleurs = [
     {r: 255, g: 0, b: 0},
     {r:86, g:190, b:255},
@@ -17,48 +14,88 @@ var couleurs = [
     {r:255, g:86, b:210}
 ];
 
-var map_couleurs_images = new Map();
-var canvas_buffer = document.createElement('canvas');
-canvas_buffer.width = canvas.width;
-canvas_buffer.height = canvas.height + RAYON_BOULES;
-var ctx_buffer = canvas_buffer.getContext('2d');
-const HAUTEUR_INTERLIGNE = Math.round(RAYON_BOULES * Math.sqrt(3));
+var rayon_boules;
+var modele_boules;
+var nb_boules_par_rang;
+var grille;
+var canon;
+var partie;
 
 
+function init() {
+    gestionnaire_frames = new Gestionnaire_frames();
 
-function calcul_distance(x1, y1, x2, y2) {
-    return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+    partie = new Partie();
+    partie.demarrer();
+    
 }
 
 
 
-function generer_dessins_boules() {
-    let canvas_boules = document.createElement('canvas');
-    canvas_boules.width = RAYON_BOULES * 2;
-    canvas_boules.height = RAYON_BOULES * 2;
-    let ctx_boules = canvas_boules.getContext('2d');
-    map_couleurs_images.clear();
-        
-    for (i = 0; i < couleurs.length ; i++) {
-        ctx_boules.clearRect(0, 0, canvas_boules.width, canvas_boules.height);
-        ctx_boules.globalCompositeOperation = 'source-over';
-        ctx_boules.beginPath();
-        x = RAYON_BOULES;
-        y = RAYON_BOULES;
-        ctx_boules.arc(x, y, RAYON_BOULES * 0.9, 0, Math.PI * 2, true);
-        let grad = ctx.createRadialGradient(x - RAYON_BOULES * 0.3, y - RAYON_BOULES * 0.3, RAYON_BOULES / 10, x, y, RAYON_BOULES);
-        grad.addColorStop(0, `rgb(${couleurs[i].r}, ${couleurs[i].g}, ${couleurs[i].b}`);
-        grad.addColorStop(1, `rgb(${Math.round(couleurs[i].r*0.7)}, ${Math.round(couleurs[i].g*0.7)}, ${Math.round(couleurs[i].b*0.7)}`);
-        ctx_boules.fillStyle = grad;
-        ctx_boules.fill();  
-        
-        let img = new Image();
-        img.src = canvas_boules.toDataURL();
-        
-        map_couleurs_images.set(couleurs[i], img);
+class Partie {
+    constructor() {
+        // à remplacer par un élément html de saisie du nb de boules en début de partie
+        nb_boules_par_rang = 7;
+        this.frequence_lignes = Math.ceil(nb_boules_par_rang / 3) + 5;
     }
+    
+    demarrer() {
+        rayon_boules = canvas.width / (nb_boules_par_rang + 0.5) / 2;
+        modele_boules = new Modele_boules();
+        grille = new Grille();
+        canon = new Canon();
+        grille.inserer_lignes(Math.floor(nb_boules_par_rang / 2));
+    }
+    
+    terminer() {
+         console.log("game over");
+    }
+    
 }
 
+
+class Modele_boules {
+    constructor() {
+        this.images = new Map();
+        this.generer_images();
+    }
+    
+    generer_images() {
+        // générer les boules sur un canvas invisible
+        // et les stocker dans des dataURL
+        let canvas_boules = document.createElement('canvas');
+        canvas_boules.width = rayon_boules * 2;
+        canvas_boules.height = rayon_boules * 2;
+        let ctx_boules = canvas_boules.getContext('2d');
+        
+        this.images.clear();
+
+        for (let i = 0; i < couleurs.length ; i++) {
+            ctx_boules.clearRect(0, 0, canvas_boules.width, canvas_boules.height);
+            ctx_boules.globalCompositeOperation = 'source-over';
+            ctx_boules.beginPath();
+            let x = rayon_boules;
+            let y = rayon_boules;
+            ctx_boules.arc(x, y, rayon_boules * 0.9, 0, Math.PI * 2, true);
+            let grad = ctx.createRadialGradient(
+                x - rayon_boules * 0.3, 
+                y - rayon_boules * 0.3, 
+                rayon_boules / 10, 
+                x, 
+                y, 
+                rayon_boules);
+            grad.addColorStop(0, `rgb(${couleurs[i].r}, ${couleurs[i].g}, ${couleurs[i].b}`);
+            grad.addColorStop(1, `rgb(${Math.round(couleurs[i].r*0.7)}, ${Math.round(couleurs[i].g*0.7)}, ${Math.round(couleurs[i].b*0.7)}`);
+            ctx_boules.fillStyle = grad;
+            ctx_boules.fill();  
+
+            let img = new Image();
+            img.src = canvas_boules.toDataURL();
+
+            this.images.set(couleurs[i], img);
+        }
+    }    
+}
 
 
 class Gestionnaire_frames {
@@ -68,7 +105,7 @@ class Gestionnaire_frames {
         this.triggered = false;
         this.actif = false;
     }
-    //autre idée : avoir des fonctions d'update et des fonctions de dessin.
+
     
     trigger() {
         // On ne fait qu'une frame à la fois.
@@ -127,25 +164,24 @@ class Boule {
     
     draw() {
         if (this.visible) {
-            ctx.drawImage(map_couleurs_images.get(this.couleur), this.x - RAYON_BOULES, this.y - RAYON_BOULES);
+            let image = modele_boules.images.get(this.couleur);
+            ctx.drawImage(image, this.x - rayon_boules, this.y - rayon_boules);
             gestionnaire_frames.fonctions_apres.push(this.draw.bind(this));
         }
     }
     
     
-    fade_away(rayon = RAYON_BOULES * 0.7) {
+    fade_away(ratio = 0.7) {
         this.visible = false;
         
-        if (rayon > RAYON_BOULES * 0.05) {
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, rayon, 0, Math.PI * 2, true);
-            ctx.fillStyle = `rgb(${this.couleur.r}, ${this.couleur.g}, ${this.couleur.b}`;
-            ctx.fill();
-            ctx.closePath();
+        if (ratio > 0.05) {    
+            let image = modele_boules.images.get(this.couleur);
+            let rayon = rayon_boules * ratio;
+            ctx.drawImage(image, this.x - rayon, this.y - rayon, rayon*2, rayon*2);
+               
             
             let next_frame = function() {
-                this.fade_away(rayon - RAYON_BOULES*0.15);
+                this.fade_away(ratio - 0.1);
             }.bind(this);
             
             gestionnaire_frames.fonctions_apres.push(next_frame);
@@ -155,14 +191,15 @@ class Boule {
     }
     
     
-    tomber(chute = RAYON_BOULES * 10) {
+    tomber(chute = rayon_boules * 10) {
         if (chute > 0) {
-            let step = RAYON_BOULES / 2;            
+            let step = rayon_boules / 2;            
             this.y += step;
             
             let next_frame = function() {
                 this.tomber(chute - step);
             }.bind(this);
+            
             gestionnaire_frames.fonctions_avant.push(next_frame);
         }
         else {
@@ -175,11 +212,12 @@ class Boule {
 
 
 class Grille {
-    constructor(context) {
-        this.context = context;
+    constructor() {
         this.lignes = [];
         this.nb_lignes_generees = 0;
+        this.hauteur_interligne = rayon_boules * Math.sqrt(3);
     }
+    
     
     get_boules() {
         let boules = new Set();
@@ -195,28 +233,23 @@ class Grille {
     
     
     inserer_lignes(nb_lignes) {
-        if (nb_lignes <= 0) {
-            //on n'arme le canon que quand toutes les lignes sont à leur place.
-            canon.armer();
-            return;
-        }
         
         for (let i = 1; i <= nb_lignes; i++) {
             let ligne = [];
             for (let j = 0; j < nb_boules_par_rang; j++) {
-                let boule = new Boule(ctx);
-                let decalage_droite = RAYON_BOULES * (this.nb_lignes_generees % 2);
-                boule.x = RAYON_BOULES + RAYON_BOULES * 2 * j + decalage_droite;
-                boule.y = RAYON_BOULES - HAUTEUR_INTERLIGNE * i;
+                let boule = new Boule();
+                
+                let decalage_droite = rayon_boules * (this.nb_lignes_generees % 2);
+                boule.x = rayon_boules + rayon_boules * 2 * j + decalage_droite;
+                boule.y = rayon_boules - this.hauteur_interligne * i;
                 ligne.push(boule);
             }
             this.lignes.unshift(ligne);
             this.nb_lignes_generees++;
         }
         
-        
         gestionnaire_frames.fonctions_avant.push(function() {
-            this.descendre_grille(nb_lignes * HAUTEUR_INTERLIGNE, RAYON_BOULES / 4);
+            this.descendre_grille(nb_lignes * this.hauteur_interligne, rayon_boules / 4);
         }.bind(this));
         
         gestionnaire_frames.trigger();
@@ -236,7 +269,7 @@ class Grille {
             
         }
         else {
-            canon.armer();
+            this.check_depassement();
         }
         gestionnaire_frames.trigger();
     }
@@ -248,7 +281,7 @@ class Grille {
           et ajouter cette boule dans la grille.
         */
         
-        let position = this.calculer_pos(boule);
+        let position = this.calculer_rang(boule);
         let ligne = position.ligne;
         let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2;
         let rang = position.rang;
@@ -256,15 +289,15 @@ class Grille {
         // se besoin, création d'une ligne vide dans la grille pour accueillir la boule
         if (this.lignes.length == ligne) {
             this.lignes.push([]) 
-            for (let i = 0; i < nb_boules_par_rang; i++) {
+            for (let i = 0; i < this.nb_boules_par_rang; i++) {
                 this.lignes[ligne].push(null);
             }
         }
         
         this.lignes[ligne][rang] = boule;
 
-        boule.x = RAYON_BOULES * (1 + decalage_droite + 2 * rang);
-        boule.y = RAYON_BOULES + ligne * HAUTEUR_INTERLIGNE;
+        boule.x = rayon_boules * (1 + decalage_droite + 2 * rang);
+        boule.y = rayon_boules + ligne * this.hauteur_interligne;
         
         gestionnaire_frames.trigger();
 
@@ -272,9 +305,9 @@ class Grille {
     }
     
     
-    calculer_pos(boule) {
-        let ligne = Math.round((boule.y - RAYON_BOULES) / HAUTEUR_INTERLIGNE);
-        let rang = Math.round((boule.x - RAYON_BOULES - RAYON_BOULES * ((this.nb_lignes_generees + 1 + ligne) % 2)) / (2 * RAYON_BOULES));
+    calculer_rang(boule) {
+        let ligne = Math.round((boule.y - rayon_boules) / this.hauteur_interligne);
+        let rang = Math.round((boule.x - rayon_boules - rayon_boules * ((this.nb_lignes_generees + 1 + ligne) % 2)) / (2 * rayon_boules));
         return {
             ligne : ligne,
             rang : rang
@@ -284,8 +317,8 @@ class Grille {
         
     get_voisins(boule) {
         let voisins = [];
-        let ligne = this.calculer_pos(boule).ligne;
-        let rang = this.calculer_pos(boule).rang;
+        let ligne = this.calculer_rang(boule).ligne;
+        let rang = this.calculer_rang(boule).rang;
         let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2
         let coord_voisins = [
             {
@@ -319,7 +352,6 @@ class Grille {
                 this.lignes[cv.li][cv.ra] !== undefined &&
                 this.lignes[cv.li][cv.ra] != null) {
                 voisins.push(this.lignes[cv.li][cv.ra])
-                //console.log("voisin de ",ligne, rang, cv.li, cv.ra);
             }
         }
         
@@ -351,10 +383,18 @@ class Grille {
         if (groupe_boules.length >= 3) {
             for (let bo of groupe_boules) {
                 gestionnaire_frames.fonctions_avant.push(bo.fade_away.bind(bo));
-                let pos = this.calculer_pos(bo);
+                let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
             }
             this.detacher_boules_flottantes();
+        }
+        
+        // suivant le nb de balles tirées, ajouter une ligne
+        if (canon.nb_boules_tirees % partie.frequence_lignes == 0) {
+            this.inserer_lignes(1);
+        }
+        else {
+            this.check_depassement();
         }
     }
     
@@ -386,11 +426,28 @@ class Grille {
         for (let bo of this.get_boules()) {
             if (!boules_fixees.includes(bo)) {
                 bo.tomber();
-                let pos = this.calculer_pos(bo);
+                let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
             }
         }
     }
+    
+    
+    check_depassement() {
+        for (let bo of this.get_boules()) {
+            if (bo.y > canvas.height - rayon_boules*3) {
+                partie.terminer();
+                return;
+            }
+        }
+        canon.armer();
+    }
+}
+
+
+
+function calcul_distance(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 }
 
 
@@ -401,6 +458,7 @@ class Canon {
         this.canon_arme = false;
         this.trajectoire = null;
         this.mouse_down = false;
+        this.nb_boules_tirees = 0;
         
         // actions souris
         canvas.addEventListener('mousemove', this.diriger.bind(this));
@@ -435,7 +493,7 @@ class Canon {
     armer() {
         this.boule = new Boule();
         this.boule.x = canvas.width / 2;
-        this.boule.y = canvas.height - RAYON_BOULES*2;
+        this.boule.y = canvas.height - rayon_boules*2;
         this.canon_arme = true;
         gestionnaire_frames.trigger();
     }
@@ -488,10 +546,12 @@ class Canon {
         
         while (!trajectoire_terminee) {
             /* Rechercher la prochaine boule en collision.
-               Autrement dit, calcul de la prochaine fois que le centre de la boule en mouvement sera à distance rayon_collision (2*RAYON_BOULES) du centre d'un cercle de la grille.
+               Autrement dit, calcul de la prochaine fois que le centre de la boule en
+               mouvement sera à distance rayon_collision (théoriquement, 2*rayon_boules)
+               du centre d'un cercle de la grille.
                Ensuite, retenir la collision la plus proche.
             */
-            let rayon_collision = RAYON_BOULES * 1.5;  
+            let rayon_collision = rayon_boules * 1.5;  
             let point_candidat = null;
             let point_collision = null;
             
@@ -548,14 +608,14 @@ class Canon {
             
             if (Math.cos(angle) > 0) {
                 point_rebond = {
-                    x : canvas.width - RAYON_BOULES,
-                    y : y_init + Math.sin(angle) * (canvas.width - RAYON_BOULES - x_init) / Math.cos(angle)
+                    x : canvas.width - rayon_boules,
+                    y : y_init + Math.sin(angle) * (canvas.width - rayon_boules - x_init) / Math.cos(angle)
                 };
             }
             else if (Math.cos(angle) < 0) {
                 point_rebond = {
-                    x : RAYON_BOULES,
-                    y : y_init + Math.sin(angle) * (RAYON_BOULES - x_init) / Math.cos(angle)
+                    x : rayon_boules,
+                    y : y_init + Math.sin(angle) * (rayon_boules - x_init) / Math.cos(angle)
                 };
             }
 
@@ -563,8 +623,8 @@ class Canon {
               Rechercher une intersection avec le plafond
             */
             let point_plafond = {
-                x : x_init + Math.cos(angle) * (RAYON_BOULES - y_init) / Math.sin(angle),
-                y : RAYON_BOULES
+                x : x_init + Math.cos(angle) * (rayon_boules - y_init) / Math.sin(angle),
+                y : rayon_boules
             };
             
             /*
@@ -621,17 +681,18 @@ class Canon {
 
     
     feu() {
-        this.mouse_down = false;
-        if (!this.canon_arme || this.angle == null) {
+        if (!this.canon_arme || this.angle == null || !this.mouse_down) {
             return;
         }
-
+        
+        this.mouse_down = false;
         this.canon_arme = false;
         this.calculer_trajectoire();
         gestionnaire_frames.fonctions_avant.push(function() {
             this.animer_boule(this.angle);
         }.bind(this));
         gestionnaire_frames.trigger();
+        this.nb_boules_tirees++;
     }
     
     
@@ -639,8 +700,7 @@ class Canon {
         
         let step = canvas.height / 30;
         let prochain_contact = this.trajectoire[0];
-        
-        //this.boule.effacer();
+
         let next_x = this.boule.x + step * Math.cos(angle);
         let next_y = this.boule.y + step * Math.sin(angle);
         
@@ -658,16 +718,15 @@ class Canon {
         
         
         if (this.trajectoire.length == 0) {
-            grille.integrer_boule(this.boule);
-            this.boule = null;
-            this.trajectoire = null;
-            this.armer();
             gestionnaire_frames.trigger();
+            grille.integrer_boule(this.boule);
+            
         }
         else {
             let prochain_step = function() {
                 this.animer_boule(angle);
             }.bind(this);
+            
             
             gestionnaire_frames.fonctions_avant.push(prochain_step);
             gestionnaire_frames.trigger();
@@ -675,23 +734,5 @@ class Canon {
     }
 }
 
-
-// initialisation du jeu
-var gestionnaire_frames = new Gestionnaire_frames();
-
-// initialisation de la partie
-generer_dessins_boules();
-var grille = new Grille();
-var canon = new Canon();
-grille.inserer_lignes(nb_boules_par_rang / 2);
-
-/*
-window.setTimeout(function() {
-    for (i=0; i<grille.lignes.length; i++) {
-        for (j=0; j<grille.lignes[i].length; j++) {
-            console.log(i, j, grille.calculer_pos(grille.lignes[i][j]));
-        }
-    }
-    console.log(grille.lignes);
-}, 2000);
-*/
+    
+window.onload = init();
