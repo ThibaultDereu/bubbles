@@ -1,8 +1,12 @@
 
 var canvas = document.getElementById('canvas_game');
 var ctx = canvas.getContext('2d');
-canvas.height = Math.min(Math.round(window.innerHeight * 0.9), Math.round((window.innerWidth*0.9) / 0.8));
-canvas.width = Math.round(canvas.height * 0.8);
+/*canvas.height = Math.min(Math.round(window.innerHeight), Math.round((window.innerWidth) / 0.8));
+canvas.width = Math.round(canvas.height * 0.8);*/
+
+//résolution du canvas :
+canvas.height = 800;
+canvas.width = 600;
 
 var gestionnaire_frames; 
 
@@ -27,12 +31,11 @@ var canon;
 var partie;
 
 
+
 function init() {
     gestionnaire_frames = new Gestionnaire_frames();
-
     partie = new Partie();
     partie.demarrer();
-    
 }
 
 
@@ -42,6 +45,7 @@ class Partie {
         // à remplacer par un élément html de saisie du nb de boules en début de partie
         nb_boules_par_rang = 12;
         this.frequence_lignes = Math.ceil(nb_boules_par_rang / 3) + 5;
+        this.nb_couleur = 5;
     }
     
     demarrer() {
@@ -391,6 +395,10 @@ class Grille {
         else {
             this.check_depassement();
         }
+        // augmenter le niveau de difficulté
+        if (canon.nb_boules_tirees % 20 == 0) {
+            partie.frequence_lignes--;
+        }
     }
     
     
@@ -629,8 +637,10 @@ class Canon {
           et un angle de cosinus négatif vers la droite.
         */
         let rect = canvas.getBoundingClientRect();
-        let x_souris = evt.clientX - rect.left;
-        let y_souris = evt.clientY - rect.top;
+        // la dimension de l'élément html canvas est différente de la dimension du bitmap, donc conversion.
+        let x_souris = (evt.clientX - rect.left) * (canvas.width / rect.width);
+        let y_souris = (evt.clientY - rect.top) * (canvas.height / rect.height);
+        
         let cos_x = (x_souris - this.boule.x) / Math.sqrt(Math.pow(x_souris - this.boule.x, 2) + Math.pow(this.boule.y - y_souris, 2));
         if (y_souris > this.boule.y - rayon_boules/10) {
             //si on essaie de tirer trop bas, la boule ne doit pas partir

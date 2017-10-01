@@ -14,4 +14,4 @@ https://thibaultdereu.github.io/bubbles/
  ses paramètres (difficulté etc.) et lance une partie.
  - licence
  - son
- - boules noires, boules bombes, boules peinture.
+ - boules peinture.
