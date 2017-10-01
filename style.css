@@ -4,12 +4,6 @@ body {
     /*background-color: #89e3fd;*/
 }
 
-/*canvas {
-    position: absolute;
-    left :0px;
-    top:0px;
-}*/
-
 #canvas_game {
     border: 1px solid black;
 }

@@ -15,5 +15,3 @@ https://thibaultdereu.github.io/bubbles/
  - licence
  - son
  - boules noires, boules bombes, boules peinture.
- - suite aux récentes optimisations, certaines animations sont trop rapides.
-   trouver un moyen de brider la vitesse avec le gestionnaire de frames.
