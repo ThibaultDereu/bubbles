@@ -1,14 +1,14 @@
 
 var canvas = document.getElementById('canvas_game');
 var ctx = canvas.getContext('2d');
-/*canvas.height = Math.min(Math.round(window.innerHeight), Math.round((window.innerWidth) / 0.8));
-canvas.width = Math.round(canvas.height * 0.8);*/
 
-//résolution du canvas :
+/*
+dimensions du canvas.
+NB: cela affectera la résolution et la largeur du canvas, mais pas sa hauteur.
+Cette dernière est variable et plafonnée à 100% de l'écran par la feuille de style.
+*/
 canvas.height = 800;
 canvas.width = 600;
-
-var gestionnaire_frames; 
 
 var couleurs = [
     {r: 255, g: 0, b: 0},
@@ -23,6 +23,7 @@ var type_boule = {
     BOMBE: 3,
     PEINTURE: 4
 }
+var gestionnaire_frames; 
 var rayon_boules;
 var modele_boules;
 var nb_boules_par_rang;
@@ -33,22 +34,56 @@ var partie;
 
 
 function init() {
-    gestionnaire_frames = new Gestionnaire_frames();
     partie = new Partie();
-    partie.demarrer();
+    //partie.demarrer();
 }
 
 
 
 class Partie {
     constructor() {
-        // à remplacer par un élément html de saisie du nb de boules en début de partie
-        nb_boules_par_rang = 12;
+        nb_boules_par_rang = 12 ;
+        this.nb_couleurs = 5;
         this.frequence_lignes = Math.ceil(nb_boules_par_rang / 3) + 5;
-        this.nb_couleur = 5;
+        
+        this.initialiser();
+        
+    }
+    
+    initialiser() {
+        let form_debut = document.getElementById('form_debut');
+        
+        // input nb boules par rangée
+        let range_nb_boules = document.getElementById('range_nb_boules');
+        range_nb_boules.value = nb_boules_par_rang;
+        let value_nb_boules = document.getElementById('value_nb_boules');
+        value_nb_boules.textContent = range_nb_boules.value;
+        range_nb_boules.addEventListener('input', function() {
+            // TODO à convertir en entier (idem pour les couleurs)
+            nb_boules_par_rang = Number(range_nb_boules.value);
+            value_nb_boules.textContent = range_nb_boules.value;
+        })
+        
+        // input nb couleurs
+        let range_nb_couleurs = document.getElementById('range_nb_couleurs');
+        range_nb_couleurs.value = this.nb_couleurs;
+        let value_nb_couleurs = document.getElementById('value_nb_couleurs');
+        value_nb_couleurs.textContent = range_nb_couleurs.value,
+        range_nb_couleurs.addEventListener('input', function() {
+            this.nb_couleurs = range_nb_couleurs.value;
+            value_nb_couleurs.textContent = Number(range_nb_couleurs.value);
+        })
+                
+        // bouton démarrer
+        document.getElementById('bouton_demarrer').addEventListener('mouseup', this.demarrer.bind(this));
+        
+        form_debut.style.display = 'block';
     }
     
     demarrer() {
+        form_debut.style.display = 'none';
+        
+        gestionnaire_frames = new Gestionnaire_frames();
         rayon_boules = canvas.width / (nb_boules_par_rang + 0.5) / 2;
         modele_boules = new Modele_boules();
         grille = new Grille();
@@ -57,13 +92,16 @@ class Partie {
     }
     
     terminer() {
-         console.log("game over");
+        document.getElementById('form_debut').style.display = 'block';
     }
     
 }
 
 
 class Modele_boules {
+    /*
+    Cette classe permet de gérer toutes les images de boules.
+    */
     constructor() {
         this.images_couleurs = new Map();
         
@@ -148,6 +186,26 @@ class Modele_boules {
 
 
 class Gestionnaire_frames {
+    /*
+    Cette classe sert à de gérer toutes les animations.
+    Si on souhaite afficher un objet, il faut ajouter sa fonction de rendu dans 
+    fonctions_apres ou fonctions_avant.
+    Ensuite, activer la méthode trigger() déclenchera un requestAnimationFrame(), 
+    qui effacera la totalité du canvas et lancera toutes les fonctions stockées 
+    dans le gestionnaire de frames. 
+    Pour tout objet affiché à l'écran, c'est sa fonction de rendu qui doit se resoumettre
+    récursivement dans le gestionnaire de frames.
+    L'appel de la méthode trigger() n'est nécessaire que lorsqu'il y a une animation; 
+    un objet statique a juste besoin de resoumettre sa fonction de dessin, sans nécessité
+    de déclencher trigger().
+    L'array fonctions_avant a surtout vocation à soumettre des fonctions de mise à jour des
+    données (position d'une boule par exemple) si besoin, et l'array fonctions_apres à 
+    effectuer des rendus. Cela peut être utile lorsque la mise à jour et le rendu sont
+    effectués par des fonctions différentes, et qu'on veut s'assurer que la fonction de 
+    mise à jour est exécutée avant la fonction de rendu.
+    (exemple : mise à jour de la position d'une boule avec la méthode Grille.descendreGrille(),
+    et affichage des boules avec la méthode Boule.draw().)
+    */
     constructor() {
         this.fonctions_avant = [];
         this.fonctions_apres = [];
@@ -167,7 +225,7 @@ class Gestionnaire_frames {
                 let fonctions = this.fonctions_avant.slice();
                 this.fonctions_avant = [];
 
-                while (fonctions.length > 0) {
+                while (fonctions.length) {
                     let f = fonctions.shift();
                     f();
                 }
@@ -175,7 +233,7 @@ class Gestionnaire_frames {
                 fonctions = this.fonctions_apres.slice();
                 this.fonctions_apres = [];
                 
-                while (fonctions.length > 0) {
+                while (fonctions.length) {
                     let f = fonctions.shift();
                     f();
                 }
@@ -557,7 +615,7 @@ class Canon {
         // état du canon
         this.canon_arme = false;
         this.mouse_down = false;
-        this.mouse_in = true
+        this.mouse_in = false;
         
         // attributs du canon
         this.trajectoire = null;
@@ -568,6 +626,7 @@ class Canon {
         // actions souris
         canvas.addEventListener('mouseover', function() {
             this.mouse_in = true;
+            gestionnaire_frames.fonctions_apres.push(this.draw_trajectoire.bind(this));
         }.bind(this));
         canvas.addEventListener('mousemove', function(evt) {
             if (this.canon_arme) {
@@ -589,6 +648,7 @@ class Canon {
         }.bind(this));
         canvas.addEventListener('mouseout', function(evt) {
             this.mouse_in = false;
+            gestionnaire_frames.trigger()
         }.bind(this));
         
         
@@ -636,6 +696,7 @@ class Canon {
           comme y est croissant vers le bas, un angle de cosinus positif va vers la gauche,
           et un angle de cosinus négatif vers la droite.
         */
+        
         let rect = canvas.getBoundingClientRect();
         // la dimension de l'élément html canvas est différente de la dimension du bitmap, donc conversion.
         let x_souris = (evt.clientX - rect.left) * (canvas.width / rect.width);
@@ -779,6 +840,7 @@ class Canon {
     
     
     draw_trajectoire() {
+        
         
         if (!this.canon_arme || !this.angle || !this.mouse_down || !this.mouse_in) {
             gestionnaire_frames.trigger();

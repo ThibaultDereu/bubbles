@@ -7,42 +7,42 @@ html {
 }
 
 body {
-    margin: 0px; 
-    text-align: center; 
+    margin: 0px;
     height: 100%;
 }
 
 #jeu {
-    margin: auto;
-    display: inline-block;
+    display: flex;
+    justify-content: center;
+    align-items:center;
     height: 100%;
+    width: 100%;
 }
 
 #canvas_game {
-    border: 1px solid rgb(98, 98, 98);
-    max-height: 100%;
-    max-width: 100%;
+    position: relative;
+    
+    border: 1px solid rgb(150, 150, 150);
+    max-height: 95%;
+    max-width: 95%;
 }
 
-#form_debut {
-   
-    z-index: 1;
-    left: 0;
+
+#form_debut { 
     display: none;
-    top: 0;
-    background:#e74c3c;
-    width:260px;
-    height:260px;
+    position: absolute;
+    
+    padding: 20px;
+    
+    background:#009d36;
     text-align:center;
     color:white;
-    font-family: 'HelveticaNeue-UltraLight', 'Helvetica Neue UltraLight', Roboto, Arial, Sans-serif;
-    margin:0 auto;
-    
+    font-family: Arial;
 }
 
-p{
-  width:100%;
-  
-  font-size:32px;
-  margin-top:30px;
+input[type=range] {
+    display: block;
+    margin: auto;
+    margin-bottom: 20px;
+    width: 150px;
 }
