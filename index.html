@@ -12,30 +12,30 @@
             
             <canvas id="canvas_game"></canvas>
             
-                <form id="form_debut">
-                    <h1>Nouvelle partie</h1>
-                    <div>
-                        <label for="range_nb_boules">nb boules par rangée : 
-                            <span id="value_nb_boules"/> 
-                        </label>
-                   
-                        <input class="range" id="range_nb_boules" name="range_nb_boules" type="range" min=4 max=30 step=1 value="8">
-                    </div>
-                    <div>
-                        <label for="range_nb_couleurs">nb couleurs : 
-                            <span id="value_nb_couleurs"/> 
-                        </label>
-                        
-                        <input class="range" id="range_nb_couleurs" name="range_nb_couleurs" type="range" min=2 max=7 step=1 value=5>
-                    </div>
+            <form id="form_debut">
+                <h1>Nouvelle partie</h1>
+                <div>
+                    <label for="range_nb_boules">nb boules par rangée : 
+                        <span id="value_nb_boules"/> 
+                    </label>
 
-                    <div>
-                        <input id="bouton_demarrer" type="button" value="démarrer">
-                    </div>
-                </form>
+                    <input class="range" id="range_nb_boules" name="range_nb_boules" type="range" min=4 max=20 step=1 value="8">
+                </div>
+                <div>
+                    <label for="range_nb_couleurs">nb couleurs : 
+                        <span id="value_nb_couleurs"/> 
+                    </label>
+
+                    <input class="range" id="range_nb_couleurs" name="range_nb_couleurs" type="range" min=2 max=8 step=1 value=5>
+                </div>
+
+                <div>
+                    <input id="bouton_demarrer" type="button" value="démarrer">
+                </div>
+            </form> 
             
-                        
         </div>
+        
         <script src="bubbles.js" type="text/javascript" charset="utf-8"></script>
     </body>
 </html>

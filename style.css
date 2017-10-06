@@ -13,6 +13,7 @@ body {
 
 #jeu {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items:center;
     height: 100%;
@@ -29,6 +30,7 @@ body {
 
 
 #form_debut { 
+    z-index: 1;
     display: none;
     position: absolute;
     

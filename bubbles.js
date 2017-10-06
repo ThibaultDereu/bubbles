@@ -10,20 +10,15 @@ Cette dernière est variable et plafonnée à 100% de l'écran par la feuille de
 canvas.height = 800;
 canvas.width = 600;
 
-var couleurs = [
-    {r: 255, g: 0, b: 0},
-    {r:86, g:190, b:255},
-    {r:76, g:255, b:23}, 
-    {r:255, g:237, b:16}, 
-    {r:255, g:86, b:210},
-];
+var couleurs = [];
 var type_boule = {
     COULEUR: 1,
     NOIRE: 2,
     BOMBE: 3,
-    PEINTURE: 4
+    PINCEAU: 4
 }
 var gestionnaire_frames; 
+var gestionnaire_sons;
 var rayon_boules;
 var modele_boules;
 var nb_boules_par_rang;
@@ -31,6 +26,17 @@ var grille;
 var canon;
 var partie;
 
+
+/*
+sons à générer : 
+ - tir
+ - rebond
+ - collision
+ - désintégration
+ - explosion
+ - pinceau
+
+*/
 
 
 function init() {
@@ -44,10 +50,7 @@ class Partie {
     constructor() {
         nb_boules_par_rang = 12 ;
         this.nb_couleurs = 5;
-        this.frequence_lignes = Math.ceil(nb_boules_par_rang / 3) + 5;
-        
         this.initialiser();
-        
     }
     
     initialiser() {
@@ -59,10 +62,9 @@ class Partie {
         let value_nb_boules = document.getElementById('value_nb_boules');
         value_nb_boules.textContent = range_nb_boules.value;
         range_nb_boules.addEventListener('input', function() {
-            // TODO à convertir en entier (idem pour les couleurs)
             nb_boules_par_rang = Number(range_nb_boules.value);
             value_nb_boules.textContent = range_nb_boules.value;
-        })
+        }.bind(this));
         
         // input nb couleurs
         let range_nb_couleurs = document.getElementById('range_nb_couleurs');
@@ -70,20 +72,32 @@ class Partie {
         let value_nb_couleurs = document.getElementById('value_nb_couleurs');
         value_nb_couleurs.textContent = range_nb_couleurs.value,
         range_nb_couleurs.addEventListener('input', function() {
-            this.nb_couleurs = range_nb_couleurs.value;
+            this.nb_couleurs = Number(range_nb_couleurs.value);
             value_nb_couleurs.textContent = Number(range_nb_couleurs.value);
-        })
+        }.bind(this));
                 
         // bouton démarrer
         document.getElementById('bouton_demarrer').addEventListener('mouseup', this.demarrer.bind(this));
-        
         form_debut.style.display = 'block';
     }
     
     demarrer() {
         form_debut.style.display = 'none';
         
+        couleurs = [
+            {r: 255, g: 0, b: 0},
+            {r:86, g:190, b:255},
+            {r:76, g:255, b:23}, 
+            {r:255, g:237, b:16}, 
+            {r:255, g:86, b:210},
+            {r:255, g:255, b:255},
+            {r:150, g:48, b:255},
+            {r:255, g:173, b:42}
+        ].slice(0, this.nb_couleurs);
+        this.frequence_lignes = Math.ceil(nb_boules_par_rang / 3) + this.nb_couleurs;
+        
         gestionnaire_frames = new Gestionnaire_frames();
+        gestionnaire_sons = new Gestionnaire_sons();
         rayon_boules = canvas.width / (nb_boules_par_rang + 0.5) / 2;
         modele_boules = new Modele_boules();
         grille = new Grille();
@@ -180,7 +194,39 @@ class Modele_boules {
         else if (type == type_boule.PEINTURE) {
             return this.image_boule_peinture;
         }
+    }    
+}
+
+
+class Gestionnaire_sons {
+    constructor() {
+        this.sons = new Map();
         
+        let son_laser = new Audio('sons/Laser-SoundBible.com-602495617.mp3');
+        this.sons.set('laser', son_laser);
+        // Laser Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
+    
+        let son_explosion = new Audio('sons/Mortar Round-SoundBible.com-1560834884.mp3');
+        this.sons.set('explosion', son_explosion);
+        // Mortar Round Sound | Recorded by snottyboy | http://soundbible.com | License: Attribution 3.0
+        
+        let son_grille = new Audio('sons/Mario_Jumping-Mike_Koenig-989896458.mp3');
+        this.sons.set('grille', son_grille);
+        // Mario Jumping Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
+        
+        let son_rebond = new Audio('sons/Bounce-SoundBible.com-12678623.mp3');
+        this.sons.set('rebond', son_rebond);
+        // Bounce Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
+    }
+    
+    play(nom_son) {
+        let son = this.sons.get(nom_son);
+        // la méthode play ne fait rien si le son est déjà en cours, donc
+        // il faut remettre à 0 le son.
+        if (son.currentTime != 0) {
+            son.currentTime = 0;
+        }
+        this.sons.get(nom_son).play();
     }
 }
 
@@ -449,12 +495,13 @@ class Grille {
         // suivant le nb de balles tirées, ajouter une ligne
         if (canon.nb_boules_tirees % partie.frequence_lignes == 0) {
             this.inserer_lignes(1);
+            gestionnaire_sons.play('grille');
         }
         else {
             this.check_depassement();
         }
         // augmenter le niveau de difficulté
-        if (canon.nb_boules_tirees % 20 == 0) {
+        if (canon.nb_boules_tirees % 20 == 0 && partie.frequence_lignes > 3) {
             partie.frequence_lignes--;
         }
     }
@@ -541,6 +588,7 @@ class Grille {
                 let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
             }
+            gestionnaire_sons.play('laser');
         }
     }
     
@@ -551,6 +599,8 @@ class Grille {
             let pos = this.calculer_rang(bo);
             this.lignes[pos.ligne][pos.rang] = null;
         }
+        
+        gestionnaire_sons.play('explosion');
         gestionnaire_frames.fonctions_avant.push(boule.exploser.bind(boule));
         let pos_bombe = this.calculer_rang(boule);
         this.lignes[pos_bombe.ligne][pos_bombe.rang] = null;
@@ -615,7 +665,7 @@ class Canon {
         // état du canon
         this.canon_arme = false;
         this.mouse_down = false;
-        this.mouse_in = false;
+        this.mouse_in = true;
         
         // attributs du canon
         this.trajectoire = null;
@@ -710,7 +760,6 @@ class Canon {
         else {
             this.angle = - Math.acos(cos_x);
         }    
-        
         // trigger le gestionnaire de frames pour actualiser la trajectoire.
         gestionnaire_frames.trigger()
     }
@@ -903,6 +952,11 @@ class Canon {
             this.boule.y = prochain_contact.y;
             this.trajectoire.shift();
             angle = Math.PI - angle;
+            // son de rebond si on est sur un point de contact non final.
+            if (this.trajectoire.length) {
+                gestionnaire_sons.play('rebond');
+            }
+            
         }
         
         
