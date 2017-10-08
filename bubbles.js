@@ -51,6 +51,7 @@ class Partie {
         nb_boules_par_rang = 12 ;
         this.nb_couleurs = 5;
         this.initialiser();
+        
     }
     
     initialiser() {
@@ -205,18 +206,24 @@ class Gestionnaire_sons {
         this.sons = new Map();
         
         let son_laser = new Audio('sons/Laser-SoundBible.com-602495617.mp3');
+        // obliger le navigateur à charger le son. (pour chrome android)
+        son_laser.load();
         this.sons.set('laser', son_laser);
+        
         // Laser Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
     
         let son_explosion = new Audio('sons/Mortar Round-SoundBible.com-1560834884.mp3');
+        son_explosion.load();
         this.sons.set('explosion', son_explosion);
         // Mortar Round Sound | Recorded by snottyboy | http://soundbible.com | License: Attribution 3.0
         
         let son_grille = new Audio('sons/Mario_Jumping-Mike_Koenig-989896458.mp3');
+        son_grille.load();
         this.sons.set('grille', son_grille);
         // Mario Jumping Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
         
         let son_rebond = new Audio('sons/Bounce-SoundBible.com-12678623.mp3');
+        son_rebond.load();
         this.sons.set('rebond', son_rebond);
         // Bounce Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
     }
