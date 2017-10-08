@@ -27,21 +27,8 @@ var canon;
 var partie;
 
 
-/*
-sons à générer : 
- - tir
- - rebond
- - collision
- - désintégration
- - explosion
- - pinceau
-
-*/
-
-
 function init() {
     partie = new Partie();
-    //partie.demarrer();
 }
 
 
@@ -209,7 +196,6 @@ class Gestionnaire_sons {
         // obliger le navigateur à charger le son. (pour chrome android)
         son_laser.load();
         this.sons.set('laser', son_laser);
-        
         // Laser Sound | Recorded by Mike Koenig | http://soundbible.com | License: Attribution 3.0
     
         let son_explosion = new Audio('sons/Mortar Round-SoundBible.com-1560834884.mp3');
@@ -230,8 +216,7 @@ class Gestionnaire_sons {
     
     play(nom_son) {
         let son = this.sons.get(nom_son);
-        // la méthode play ne fait rien si le son est déjà en cours, donc
-        // il faut remettre à 0 le son.
+        // la méthode play ne fait rien si le son est déjà en cours, donc il faut remettre à 0 le son.
         if (son.currentTime != 0) {
             son.currentTime = 0;
         }
@@ -242,7 +227,7 @@ class Gestionnaire_sons {
 
 class Gestionnaire_frames {
     /*
-    Cette classe sert à de gérer toutes les animations.
+    Cette classe sert à gérer toutes les animations.
     Si on souhaite afficher un objet, il faut ajouter sa fonction de rendu dans 
     fonctions_apres ou fonctions_avant.
     Ensuite, activer la méthode trigger() déclenchera un requestAnimationFrame(), 
@@ -325,7 +310,7 @@ class Boule {
         let idx = Math.floor(Math.random() * somme_proba);
         this.type = array_proba[idx];
         
-        // sélection la couleur
+        // sélection au hasard de la couleur
         if (this.type == 1) {
             this.couleur = couleurs[Math.floor(Math.random() * couleurs.length)];
         }
@@ -387,11 +372,10 @@ class Boule {
     
     
     exploser(numero_image = 0) {
-        //this.fade_away();
         this.visible = false;
         if (numero_image < modele_boules.images_explosion.length) {
             let img = modele_boules.images_explosion[numero_image];
-            let rayon = rayon_boules * 4
+            let rayon = rayon_boules * 4;
             ctx.drawImage(img, this.x - rayon, this.y - rayon, rayon*2, rayon*2);
             let next_frame = function() {
                 this.exploser(numero_image + 1);
@@ -479,7 +463,7 @@ class Grille {
         let decalage_droite = (this.nb_lignes_generees + 1 + ligne) % 2;
         let rang = position.rang;
         
-        // se besoin, création d'une ligne vide dans la grille pour accueillir la boule
+        // si besoin, création d'une ligne vide dans la grille pour accueillir la boule
         if (this.lignes.length == ligne) {
             this.lignes.push([]) 
             for (let i = 0; i < this.nb_boules_par_rang; i++) {
@@ -934,8 +918,6 @@ class Canon {
     
     
     draw_trajectoire() {
-        
-        
         if (!this.canon_arme || !this.angle || !this.mouse_down || !this.mouse_in) {
             gestionnaire_frames.trigger();
             return;
@@ -965,7 +947,6 @@ class Canon {
         ctx.globalAlpha = 1;
         
         gestionnaire_frames.fonctions_apres.push(this.draw_trajectoire.bind(this));
-        
     }
 
     
@@ -1001,20 +982,16 @@ class Canon {
             if (this.trajectoire.length) {
                 gestionnaire_sons.play('rebond');
             }
-            
         }
-        
         
         if (this.trajectoire.length == 0) {
             gestionnaire_frames.trigger();
             grille.integrer_boule(this.boule);
-            
         }
         else {
             let prochain_step = function() {
                 this.animer_boule(angle);
             }.bind(this);
-            
             
             gestionnaire_frames.fonctions_apres.push(prochain_step);
             gestionnaire_frames.trigger();
