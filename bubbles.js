@@ -133,6 +133,8 @@ class Modele_boules {
         
         this.image_boule_bombe = new Image();
         this.image_boule_bombe.src = 'images/image_bombe.png';
+        this.image_boule_pinceau = new Image();
+        this.image_boule_pinceau.src = 'images/ball_rainbow.png';
         
         // générer les images d'explosion
         this.images_explosion = [];
@@ -191,8 +193,8 @@ class Modele_boules {
         else if (type == type_boule.BOMBE) {
             return this.image_boule_bombe;
         }
-        else if (type == type_boule.PEINTURE) {
-            return this.image_boule_peinture;
+        else if (type == type_boule.PINCEAU) {
+            return this.image_boule_pinceau;
         }
     }    
 }
@@ -302,17 +304,17 @@ class Gestionnaire_frames {
 
 
 class Boule {
-    constructor(proba_couleur = 1, proba_noir = 0, proba_bombe = 0, proba_peinture = 0) {
+    constructor(proba_couleur = 1, proba_noir = 0, proba_bombe = 0, proba_pinceau = 0) {
         this.x = 0;
         this.y = 0;
         this.couleur = null;
         
         // sélectionne au hasard le type en fonction des probabilités
-        let somme_proba = proba_couleur + proba_noir + proba_bombe + proba_peinture;
+        let somme_proba = proba_couleur + proba_noir + proba_bombe + proba_pinceau;
         let array_proba = Array(proba_couleur).fill(type_boule.COULEUR);
         array_proba = array_proba.concat(Array(proba_noir).fill(type_boule.NOIRE));
         array_proba = array_proba.concat(Array(proba_bombe).fill(type_boule.BOMBE));
-        array_proba = array_proba.concat(Array(proba_peinture).fill(type_boule.PEINTURE));
+        array_proba = array_proba.concat(Array(proba_pinceau).fill(type_boule.PINCEAU));
         let idx = Math.floor(Math.random() * somme_proba);
         this.type = array_proba[idx];
         
@@ -421,7 +423,7 @@ class Grille {
         for (let i = 1; i <= nb_lignes; i++) {
             let ligne = [];
             for (let j = 0; j < nb_boules_par_rang; j++) {
-                let boule = new Boule(10, 1, 0, 0);
+                let boule = new Boule(90, 5, 0, 5);
                 
                 let decalage_droite = rayon_boules * (this.nb_lignes_generees % 2);
                 boule.x = rayon_boules + rayon_boules * 2 * j + decalage_droite;
@@ -485,13 +487,20 @@ class Grille {
         
         gestionnaire_frames.trigger();
         
+        // regroupement des boules de même couleur et disparition
         if (boule.type == type_boule.COULEUR) {
             this.regrouper_boule(boule);
+            // vérifier si boule peinture touchée et si oui peindre les voisines.
+            this.peindre_boules(boule);
         }
+        // explosion de la bombe et de ses voisines
         else if (boule.type == type_boule.BOMBE) {
             this.declencher_bombe(boule);
         }
-        this.detacher_boules_flottantes();        
+        
+        // détachement des boules flottantes
+        this.detacher_boules_flottantes();  
+        
         // suivant le nb de balles tirées, ajouter une ligne
         if (canon.nb_boules_tirees % partie.frequence_lignes == 0) {
             this.inserer_lignes(1);
@@ -500,6 +509,7 @@ class Grille {
         else {
             this.check_depassement();
         }
+        
         // augmenter le niveau de difficulté
         if (canon.nb_boules_tirees % 20 == 0 && partie.frequence_lignes > 3) {
             partie.frequence_lignes--;
@@ -590,6 +600,34 @@ class Grille {
             }
             gestionnaire_sons.play('laser');
         }
+    }
+    
+    
+    peindre_boules(boule) {
+        let couleur = boule.couleur;
+        
+        // rechercher une boule pinceau parmi les boules touchées
+        for (let bo of this.get_voisins(boule)) {
+            if (bo.type == type_boule.PINCEAU) {
+                // peindre la boule pinceau
+                bo.type = type_boule.COULEUR;
+                bo.couleur = couleur;
+                
+                // peindre les voisins de la boule pinceau
+                for (let bo2 of this.get_voisins(bo)) {
+                    if (bo2.type != type_boule.PINCEAU) {
+                        bo2.type = type_boule.COULEUR;
+                        bo2.couleur = couleur;
+                    }
+                }
+                
+                // rechercher une boule pinceau récursivement parmi les boules voisines de la boule pinceau
+                this.peindre_boules(bo);
+            }
+        }
+        
+        gestionnaire_frames.trigger();
+        
     }
     
     
