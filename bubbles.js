@@ -99,7 +99,6 @@ class Partie {
     terminer() {
         document.getElementById('form_debut').style.display = 'block';
     }
-    
         
     afficher_points() {
         ctx.font = "40px Calibri,Geneva,Arial";
@@ -138,7 +137,6 @@ class Modele_boules {
         // générer les images d'explosion
         this.images_explosion = [];
         for (let i = 0; i < 58; i++) {
-            
             let img = new Image();
             let src = 'images/images_explosion/explosion' + ('0000' + String(i)).slice(-4) + '.png';
             // utilisation fonction setTimeout pour charger les images en asynchrone.
@@ -181,7 +179,7 @@ class Modele_boules {
             return img;
         }
     }
-    
+
     get_image(type, couleur) {
         if (type == type_boule.COULEUR) {
             return this.images_couleurs.get(couleur);
@@ -197,6 +195,7 @@ class Modele_boules {
         }
     }    
 }
+
 
 
 class Gestionnaire_sons {
@@ -392,14 +391,27 @@ class Boule {
     }
     
     
-    exploser(numero_image = 0) {
+    exploser(numero_image = 0, acceleration, offset) {
         this.visible = false;
-        if (numero_image < modele_boules.images_explosion.length) {
-            let img = modele_boules.images_explosion[numero_image];
-            let rayon = rayon_boules * 4;
-            ctx.drawImage(img, this.x - rayon, this.y - rayon, rayon*2, rayon*2);
+        
+        if (numero_image == 0) {
+            acceleration = 0.5 + Math.random();
+            offset = {
+                x: rayon_boules * (0.5 - Math.random()),
+                y: rayon_boules * (0.5 - Math.random())
+            };
+        }
+        
+        let numero_image_acceleree = Math.round(numero_image * acceleration);
+        
+        if (numero_image_acceleree < modele_boules.images_explosion.length) {
+            
+            let img = modele_boules.images_explosion[Math.floor(numero_image_acceleree)];
+            let rayon_explosion = rayon_boules * 4;
+            ctx.drawImage(img, this.x + offset.x - rayon_explosion, this.y + offset.y - rayon_explosion, rayon_explosion * 2, rayon_explosion * 2);
+                
             let next_frame = function() {
-                this.exploser(numero_image + 1);
+                this.exploser(numero_image + 1, acceleration, offset);
             }.bind(this);
             gestionnaire_frames.fonctions_apres.push(next_frame);
         }
