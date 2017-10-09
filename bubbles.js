@@ -105,7 +105,7 @@ class Partie {
         ctx.font = "40px Calibri,Geneva,Arial";
         ctx.strokeStyle = "rgb(0,0,0)";
         ctx.fillStyle = "rgb(100, 136, 255)";
-        ctx.fillText(String(this.nb_boules_detruites), 450, 770);
+        ctx.fillText(String(this.nb_boules_detruites), 480, 770);
         gestionnaire_frames.fonctions_apres.push(this.afficher_points.bind(this));
     }
 }
@@ -262,6 +262,8 @@ class Gestionnaire_frames {
         this.fonctions_apres = [];
         this.triggered = false;
         this.actif = false;
+        this.frames_par_seconde = null;
+        this.time_last_frame = null;
     }
 
     
@@ -271,6 +273,12 @@ class Gestionnaire_frames {
         if (!this.actif) {
             let next_frame = function() {
                 this.actif = true;
+
+                this.frames_par_seconde = 1000 / (Date.now() - this.time_last_frame);
+                this.time_last_frame = Date.now();
+                // comme il peut s'être écoulé du temps depuis le dernier trigger, on ajuste frames_par_seconde
+                this.frames_par_seconde = Math.max(this.frames_par_seconde, 30);
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 let fonctions = this.fonctions_avant.slice();
@@ -353,7 +361,8 @@ class Boule {
                
             
             let next_frame = function() {
-                this.fade_away(ratio - 0.1);
+                let new_ratio = ratio - 4 / gestionnaire_frames.frames_par_seconde;
+                this.fade_away(new_ratio);
             }.bind(this);
             
             gestionnaire_frames.fonctions_apres.push(next_frame);
@@ -365,7 +374,8 @@ class Boule {
     
     tomber(chute = rayon_boules * 10) {
         if (chute > 0) {
-            let step = rayon_boules / 2;            
+            let pixels_par_seconde = 800;
+            let step = pixels_par_seconde / gestionnaire_frames.frames_par_seconde;
             this.y += step;
             
             let next_frame = function() {
@@ -459,6 +469,7 @@ class Grille {
         else {
             this.check_depassement();
         }
+                
         gestionnaire_frames.trigger();
     }
           
@@ -979,9 +990,12 @@ class Canon {
     
     
     animer_boule(angle) {
-        let step = canvas.height / 30;
+        // calcul du chemin à parcourir : nb pixels par secondes / frames par secondes
+        let pixel_par_seconde = 1800;
+        let step = pixel_par_seconde / gestionnaire_frames.frames_par_seconde;
+        
         let prochain_contact = this.trajectoire[0];
-
+        
         let next_x = this.boule.x + step * Math.cos(angle);
         let next_y = this.boule.y + step * Math.sin(angle);
         
