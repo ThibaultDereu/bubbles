@@ -503,8 +503,10 @@ class Grille {
         // détachement des boules flottantes
         this.detacher_boules_flottantes();  
         
+        let nb_boules_restantes = this.get_boules().size;
+        
         // suivant le nb de balles tirées, ajouter une ligne
-        if (canon.nb_boules_tirees % partie.frequence_lignes == 0) {
+        if (canon.nb_boules_tirees % partie.frequence_lignes == 0 || nb_boules_restantes == 0) {
             this.inserer_lignes(1);
             gestionnaire_sons.play('grille');
         }
