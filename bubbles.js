@@ -37,6 +37,7 @@ class Partie {
     constructor() {
         nb_boules_par_rang = 12 ;
         this.nb_couleurs = 5;
+        this.nb_boules_detruites = 0;
         this.initialiser();
         
     }
@@ -91,12 +92,22 @@ class Partie {
         grille = new Grille();
         canon = new Canon();
         grille.inserer_lignes(2);
+        this.nb_boules_detruites = 0;
+        this.afficher_points();
     }
     
     terminer() {
         document.getElementById('form_debut').style.display = 'block';
     }
     
+        
+    afficher_points() {
+        ctx.font = "40px Calibri,Geneva,Arial";
+        ctx.strokeStyle = "rgb(0,0,0)";
+        ctx.fillStyle = "rgb(100, 136, 255)";
+        ctx.fillText(String(this.nb_boules_detruites), 450, 770);
+        gestionnaire_frames.fonctions_apres.push(this.afficher_points.bind(this));
+    }
 }
 
 
@@ -588,6 +599,7 @@ class Grille {
                 gestionnaire_frames.fonctions_avant.push(bo.fade_away.bind(bo));
                 let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
+                partie.nb_boules_detruites++;
             }
             gestionnaire_sons.play('laser');
         }
@@ -627,12 +639,14 @@ class Grille {
             gestionnaire_frames.fonctions_avant.push(bo.exploser.bind(bo));
             let pos = this.calculer_rang(bo);
             this.lignes[pos.ligne][pos.rang] = null;
+            partie.nb_boules_detruites++;
         }
         
         gestionnaire_sons.play('explosion');
         gestionnaire_frames.fonctions_avant.push(boule.exploser.bind(boule));
         let pos_bombe = this.calculer_rang(boule);
         this.lignes[pos_bombe.ligne][pos_bombe.rang] = null;
+        partie.nb_boules_detruites++;
     }
     
     
@@ -665,6 +679,7 @@ class Grille {
                 bo.tomber();
                 let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
+                partie.nb_boules_detruites++;
             }
         }
     }
@@ -767,7 +782,7 @@ class Canon {
         this.canon_arme = true;
         gestionnaire_frames.trigger();
     }
-    
+        
     
     diriger(evt) {
         /*
