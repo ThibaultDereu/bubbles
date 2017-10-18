@@ -701,10 +701,11 @@ class Grille {
         // toutes les boules de la grille non présentes dans boules_fixees doivent tomber.
         for (let bo of this.get_boules()) {
             if (!boules_fixees.includes(bo)) {
-                bo.tomber();
                 let pos = this.calculer_rang(bo);
                 this.lignes[pos.ligne][pos.rang] = null;
                 partie.nb_boules_detruites++;
+                
+                bo.tomber();
             }
         }
     }
